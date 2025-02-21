@@ -1,0 +1,27 @@
+{
+  "name": "@pemo-plugins/core",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "axios": "^1.6.8",
+    "compare-versions": "^6.1.0",
+    "fs-extra": "^11.2.0",
+    "unzip-stream": "^0.3.1",
+    "vm2": "^3.9.19"
+  }
+}

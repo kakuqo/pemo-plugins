@@ -1,0 +1,10 @@
+{
+  "pluginId": "core@1.0.0",
+  "name": "Plugin Manager Core",
+  "version": "1.0.0",
+  "description": "Core plugin manager for Pemo",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "author": "Pemo",
+  "license": "MIT"
+}
