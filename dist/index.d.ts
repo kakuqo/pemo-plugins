@@ -8,6 +8,53 @@ interface IPlugin {
     stop(): void | Promise<void>;
     validateConfig(): boolean;
 }
+interface PluginManifest {
+    version: string;
+    title: string;
+    description: string;
+    pluginId: string;
+    category: string;
+    main: string;
+    platforms: string[];
+    arch: string[];
+    icon: string;
+    link: string;
+    author: string;
+    homepage: string;
+    source: string;
+    importType?: 'module' | 'sandbox';
+    provider: {
+        value: string;
+        label: string;
+        disabled?: boolean;
+    };
+    features: string[];
+    configuration: {
+        label: string;
+        key: string;
+        type: string;
+        placeholder: string;
+        description: string;
+        defaultValue?: string;
+        options?: {
+            label: string;
+            value: string;
+        }[];
+    }[];
+}
+interface TranslationInput {
+    text: string;
+}
+interface TranslationOptions {
+    modelName?: string;
+    targetLanguage: string;
+    formLanguage?: string;
+    inputs: TranslationInput[];
+    style?: 'formal' | 'casual';
+    domain?: string;
+    preserveFormatting?: boolean;
+    glossary?: Record<string, string>;
+}
 
 interface PluginMetadata {
     name: string;
@@ -160,4 +207,4 @@ declare class PluginManager {
     private emitEvent;
 }
 
-export { PluginManager as default };
+export { type IPlugin, type PluginManifest, type TranslationInput, type TranslationOptions, PluginManager as default };
