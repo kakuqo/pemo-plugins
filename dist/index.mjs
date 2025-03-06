@@ -2022,7 +2022,7 @@ var PluginManager = class {
           const version = name.split("@")[1];
           const { name: buildInPluginName } = path2.parse(p);
           const buildInPluginVersion = buildInPluginName.split("@")[1];
-          console.log(version, version, buildInPluginVersion, compareVersions(version, buildInPluginVersion));
+          console.log(version, buildInPluginVersion, compareVersions(version, buildInPluginVersion));
           if (compareVersions(version, buildInPluginVersion) >= 0) {
             console.log(`Skipping plugin: version ${version} is newer than builtin version ${buildInPluginVersion}`);
             continue;
