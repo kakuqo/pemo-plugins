@@ -162,7 +162,7 @@ var require_traverse = __commonJS({
           }
         }
         if (typeof src === "object" && src !== null) {
-          var dst = copy(src);
+          var dst = copy2(src);
           parents.push(src);
           nodes.push(dst);
           Object.keys(src).forEach(function(key) {
@@ -181,7 +181,7 @@ var require_traverse = __commonJS({
       var parents = [];
       var alive = true;
       return function walker(node_) {
-        var node = immutable ? copy(node_) : node_;
+        var node = immutable ? copy2(node_) : node_;
         var modifiers = {};
         var state = {
           node,
@@ -269,7 +269,7 @@ var require_traverse = __commonJS({
         return t[key].apply(t, args);
       };
     });
-    function copy(src) {
+    function copy2(src) {
       if (typeof src === "object" && src !== null) {
         var dst;
         if (Array.isArray(src)) {
@@ -1916,9 +1916,9 @@ var require_unzip = __commonJS({
 
 // src/types/IPluginManager.ts
 var PluginError = class extends Error {
-  constructor(pluginName, code, message, originalError) {
+  constructor(pluginId, code, message, originalError) {
     super(message);
-    this.pluginName = pluginName;
+    this.pluginId = pluginId;
     this.code = code;
     this.originalError = originalError;
     this.name = "PluginError";
@@ -1929,7 +1929,6 @@ var PluginError = class extends Error {
 import * as path2 from "path";
 import * as fs2 from "fs-extra";
 import axios from "axios";
-import { createHash } from "crypto";
 
 // utils/index.ts
 var import_unzip_stream = __toESM(require_unzip());
@@ -1971,9 +1970,7 @@ var PluginManager = class {
     this.defaultTimeout = 1e4;
     this.plugins = /* @__PURE__ */ new Map();
     this.pluginsConfig = /* @__PURE__ */ new Map();
-    this.installations = /* @__PURE__ */ new Map();
     this.eventListeners = /* @__PURE__ */ new Map();
-    this.errors = /* @__PURE__ */ new Map();
     this.config = {
       pluginRegistry: process.env.PLUGIN_REGISTRY || "",
       pluginDir: path2.join(process.cwd(), "plugins"),
@@ -1985,11 +1982,42 @@ var PluginManager = class {
     this.init();
   }
   async init() {
-    if (this.config.buildInPluginDir) {
-      await this._loadBuildInPlugins(this.config.buildInPluginDir, this.config.pluginDir);
+    try {
+      await fs2.ensureDir(this.config.pluginDir);
+      await this._loadLocalPluginsConfig();
+      if (this.config.buildInPluginDir) {
+        await this._loadBuildInPlugins(this.config.buildInPluginDir, this.config.pluginDir);
+      }
+    } catch (error) {
+      console.error("Failed to initialize PluginManager:", error);
+      throw error;
     }
-    if (this.config.pluginDir) {
-      await this._loadPluginsConfig(this.config.pluginDir);
+  }
+  /**
+   * 加载本地插件目录下的所有插件配置
+   */
+  async _loadLocalPluginsConfig() {
+    try {
+      const pluginDirs = await fs2.readdir(this.config.pluginDir);
+      for (const dir of pluginDirs) {
+        try {
+          const manifestPath = path2.join(this.config.pluginDir, dir, "manifest.json");
+          if (await fs2.pathExists(manifestPath)) {
+            const manifest = await fs2.readJSON(manifestPath);
+            if (!manifest.pluginId || !manifest.version) {
+              console.warn(`Invalid manifest in plugin directory: ${dir}`);
+              continue;
+            }
+            this.pluginsConfig.set(manifest.pluginId, manifest);
+            console.log(`Loaded plugin config: ${manifest.pluginId}@${manifest.version}`);
+          }
+        } catch (error) {
+          console.error(`Error loading config for plugin ${dir}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading local plugins config:", error);
+      throw error;
     }
   }
   getPlugins() {
@@ -2089,17 +2117,17 @@ var PluginManager = class {
       throw new PluginError(pluginId, "LOAD_ERROR", `Failed to load plugin: ${error.message}`, error);
     }
   }
-  // 配置管理
-  getConfig() {
-    return { ...this.config };
-  }
-  setConfig(config) {
-    this.config = { ...this.config, ...config };
-  }
-  async getAvailablePlugins() {
+  /**
+   * 获取插件仓库中的插件列表
+   * @param url 插件仓库的URL
+   * @param httpAgent 可选的HTTP代理
+   * @returns 插件列表
+   */
+  async getAvailablePlugins(url, { httpAgent }) {
     try {
-      const response = await axios.get(`${this.config.pluginRegistry}/plugins`, {
-        timeout: this.config.timeout || this.defaultTimeout
+      const response = await axios.get(url, {
+        headers: { "Content-Type": "application/json" },
+        httpsAgent: httpAgent
       });
       return response.data;
     } catch (error) {
@@ -2111,422 +2139,207 @@ var PluginManager = class {
       );
     }
   }
-  async searchPlugins(query) {
-    const plugins = await this.getAvailablePlugins();
-    return plugins.filter(
-      (plugin) => {
-        var _a;
-        return plugin.metadata.name.includes(query) || ((_a = plugin.metadata.description) == null ? void 0 : _a.includes(query));
-      }
-    );
-  }
-  async getPluginDetails(pluginName) {
-    var _a;
+  /**
+   * 从本地.pemox文件安装插件
+   * @param pemoxPath .pemox文件的路径
+   * @param options 安装选项
+   */
+  async installFromPemox(pemoxPath, options) {
     try {
-      const response = await axios.get(
-        `${this.config.pluginRegistry}/plugins/${pluginName}`,
-        { timeout: this.config.timeout || this.defaultTimeout }
-      );
-      return response.data;
-    } catch (error) {
-      if (axios.isAxiosError(error) && ((_a = error.response) == null ? void 0 : _a.status) === 404) {
-        return null;
+      if (!await fs2.pathExists(pemoxPath)) {
+        throw new PluginError("system", "FILE_NOT_FOUND", `Pemox file not found: ${pemoxPath}`);
       }
+      if (!pemoxPath.endsWith(".pemox")) {
+        throw new PluginError("system", "INVALID_FILE_TYPE", "File must be a .pemox file");
+      }
+      const tempDir = path2.join(this.config.pluginDir, "temp");
+      await fs2.ensureDir(tempDir);
+      try {
+        await unzipFile(pemoxPath, tempDir);
+        const manifestPath = path2.join(tempDir, "manifest.json");
+        if (!await fs2.pathExists(manifestPath)) {
+          throw new PluginError("system", "MANIFEST_NOT_FOUND", "Manifest not found in pemox file");
+        }
+        const manifest = await fs2.readJSON(manifestPath);
+        if (!manifest.pluginId || !manifest.version) {
+          throw new PluginError("system", "INVALID_MANIFEST", "Invalid manifest in pemox file");
+        }
+        const pluginId = manifest.pluginId;
+        const version = manifest.version;
+        const pluginPath = path2.join(this.config.pluginDir, `${pluginId}@${version}`);
+        if (this.pluginsConfig.has(pluginId)) {
+          const installedManifest = this.pluginsConfig.get(pluginId);
+          const installedVersion = installedManifest.version;
+          if (!(options == null ? void 0 : options.force) && compareVersions(version, installedVersion) <= 0) {
+            console.log(`Skipping plugin: version ${version} is not newer than installed version ${installedVersion}`);
+            return;
+          }
+          await this.uninstallPlugin(pluginId);
+        }
+        await fs2.ensureDir(pluginPath);
+        await fs2.copy(tempDir, pluginPath);
+        this.pluginsConfig.set(pluginId, manifest);
+        this.emitEvent("onInstall", pluginId);
+      } finally {
+        await fs2.remove(tempDir);
+      }
+    } catch (error) {
       throw new PluginError(
-        pluginName,
-        "FETCH_ERROR",
-        `Failed to fetch plugin details: ${error.message}`,
+        "system",
+        "PEMOX_INSTALL_ERROR",
+        `Failed to install from pemox file: ${error.message}`,
         error
       );
     }
   }
-  async installPlugin(pluginPackage, options) {
-    var _a;
+  /**
+   * 批量安装.pemox文件
+   * @param pemoxPaths .pemox文件路径数组
+   * @param options 安装选项
+   */
+  async installMultipleFromPemox(pemoxPaths, options) {
+    const maxConcurrent = this.config.maxConcurrent || 3;
+    const chunks = [];
+    for (let i = 0; i < pemoxPaths.length; i += maxConcurrent) {
+      const chunk = pemoxPaths.slice(i, i + maxConcurrent);
+      chunks.push(chunk);
+    }
+    for (const chunk of chunks) {
+      await Promise.all(chunk.map((pemoxPath) => this.installFromPemox(pemoxPath, options)));
+    }
+  }
+  async installFromOnline(pluginManifest, options) {
     try {
-      const pluginName = pluginPackage.metadata.name;
-      if (!(options == null ? void 0 : options.force) && this.installations.has(pluginName)) {
+      const pluginId = pluginManifest.pluginId;
+      const version = pluginManifest.version;
+      const pluginPath = path2.join(this.config.pluginDir, `${pluginId}@${version}`);
+      if (this.pluginsConfig.has(pluginId)) {
+        const installedManifest = this.pluginsConfig.get(pluginId);
+        const installedVersion = installedManifest.version;
+        if (!(options == null ? void 0 : options.force) && compareVersions(version, installedVersion) <= 0) {
+          console.log(`Skipping plugin: version ${version} is not newer than installed version ${installedVersion}`);
+          return;
+        }
+        await this.uninstallPlugin(pluginId);
+      }
+      await fs2.ensureDir(pluginPath);
+      const downloadUrl = pluginManifest.downloadUrl;
+      if (!downloadUrl) {
         throw new PluginError(
-          pluginName,
-          "ALREADY_INSTALLED",
-          "Plugin is already installed"
+          pluginId,
+          "DOWNLOAD_URL_NOT_FOUND",
+          "Download URL not found"
         );
       }
-      const pluginPath = path2.join(this.config.pluginDir, pluginName);
-      await fs2.ensureDir(pluginPath);
       const response = await axios({
         method: "GET",
-        url: pluginPackage.downloadUrl,
+        url: downloadUrl,
         responseType: "arraybuffer",
-        timeout: this.config.timeout || this.defaultTimeout
+        timeout: this.defaultTimeout
       });
-      if (((_a = this.config.security) == null ? void 0 : _a.validateChecksum) && pluginPackage.sha256) {
-        const hash = createHash("sha256").update(response.data).digest("hex");
-        if (hash !== pluginPackage.sha256) {
-          throw new PluginError(
-            pluginName,
-            "INTEGRITY_ERROR",
-            "Plugin package integrity check failed"
-          );
-        }
-      }
-      const installation = {
-        metadata: pluginPackage.metadata,
-        installPath: pluginPath,
-        installedAt: /* @__PURE__ */ new Date(),
-        usageCount: 0,
-        enabled: true
-      };
-      this.installations.set(pluginName, installation);
-      this.emitEvent("onInstall", pluginName);
+      await unzipFile(response.data, pluginPath);
+      await fs2.writeJSON(path2.join(pluginPath, "manifest.json"), pluginManifest, { spaces: 2 });
+      this.pluginsConfig.set(pluginId, pluginManifest);
+      this.emitEvent("onInstall", pluginId);
     } catch (error) {
       throw new PluginError(
-        pluginPackage.metadata.name,
+        pluginManifest.pluginId,
         "INSTALL_ERROR",
         `Failed to install plugin: ${error.message}`,
         error
       );
     }
   }
-  // 卸载插件
-  async uninstallPlugin(name) {
-    const plugin = this.plugins.get(name);
-    const installation = this.installations.get(name);
-    if (!installation) {
-      throw new PluginError(name, "NOT_INSTALLED", "Plugin not installed");
-    }
+  /**
+   * 卸载插件
+   * @param pluginId 插件ID
+   */
+  async uninstallPlugin(pluginId) {
     try {
-      if (plugin) {
-        await plugin.stop();
-        this.plugins.delete(name);
+      const manifest = this.pluginsConfig.get(pluginId);
+      if (!manifest) {
+        throw new PluginError(pluginId, "NOT_INSTALLED", "Plugin not installed");
       }
-      await this.cleanupPluginDirectory(name);
-      this.installations.delete(name);
-      this.emitEvent("onUninstall", name);
+      const plugin = this.plugins.get(pluginId);
+      if (plugin) {
+        if (typeof plugin.cancelAllRequests === "function") {
+          await plugin.cancelAllRequests();
+        }
+        this.plugins.delete(pluginId);
+      }
+      const pluginPath = path2.join(this.config.pluginDir, `${pluginId}@${manifest.version}`);
+      await fs2.remove(pluginPath);
+      this.pluginsConfig.delete(pluginId);
+      this.emitEvent("onUninstall", pluginId);
     } catch (error) {
       throw new PluginError(
-        name,
+        pluginId,
         "UNINSTALL_ERROR",
         `Failed to uninstall plugin: ${error.message}`,
         error
       );
     }
   }
-  // 更新插件
-  async updatePlugin(name, options) {
-    const installation = this.installations.get(name);
-    if (!installation) {
-      throw new PluginError(name, "NOT_INSTALLED", "Plugin not installed");
+  /**
+   * 获取插件配置
+   * @param pluginId 插件ID
+   */
+  async getPluginConfig(pluginId) {
+    const manifest = this.pluginsConfig.get(pluginId);
+    if (!manifest) {
+      throw new PluginError(pluginId, "NOT_INSTALLED", "Plugin not installed");
     }
-    try {
-      const latestPlugin = await this.getPluginDetails(name);
-      if (!latestPlugin) {
-        throw new PluginError(name, "UPDATE_ERROR", "Plugin not found in registry");
-      }
-      if (latestPlugin.metadata.version === installation.metadata.version) {
-        return;
-      }
-      const currentConfig = (options == null ? void 0 : options.keepConfig) ? await this.getPluginConfig(name) : void 0;
-      await this.uninstallPlugin(name);
-      await this.installPlugin(latestPlugin);
-      if (currentConfig) {
-        await this.setPluginConfig(name, currentConfig);
-      }
-    } catch (error) {
-      throw new PluginError(
-        name,
-        "UPDATE_ERROR",
-        `Failed to update plugin: ${error.message}`,
-        error
-      );
-    }
-  }
-  // 获取插件状态
-  getPluginStatus(name) {
-    var _a;
-    const installation = this.installations.get(name);
-    const plugin = this.plugins.get(name);
-    if (!installation) {
-      return "not_installed" /* NOT_INSTALLED */;
-    }
-    if (!installation.enabled) {
-      return "disabled" /* DISABLED */;
-    }
-    if ((_a = this.errors.get(name)) == null ? void 0 : _a.length) {
-      return "error" /* ERROR */;
-    }
-    return plugin ? "enabled" /* ENABLED */ : "installed" /* INSTALLED */;
-  }
-  // 查找插件
-  findPlugin(predicate) {
-    for (const plugin of this.plugins.values()) {
-      if (predicate(plugin)) {
-        return plugin;
-      }
-    }
-    return void 0;
-  }
-  // 获取插件配置
-  async getPluginConfig(pluginName) {
-    const installation = this.installations.get(pluginName);
-    if (!installation) {
-      throw new PluginError(pluginName, "NOT_INSTALLED", "Plugin not installed");
-    }
-    const configPath = path2.join(installation.installPath, "config.json");
+    const configPath = path2.join(this.config.pluginDir, `${pluginId}@${manifest.version}`, "config.json");
     try {
       return await fs2.readJSON(configPath);
     } catch {
       return {};
     }
   }
-  // 设置插件配置
-  async setPluginConfig(pluginName, config) {
-    const installation = this.installations.get(pluginName);
-    if (!installation) {
-      throw new PluginError(pluginName, "NOT_INSTALLED", "Plugin not installed");
+  /**
+   * 设置插件配置
+   * @param pluginId 插件ID
+   * @param config 配置对象
+   */
+  async setPluginConfig(pluginId, config) {
+    const manifest = this.pluginsConfig.get(pluginId);
+    if (!manifest) {
+      throw new PluginError(pluginId, "NOT_INSTALLED", "Plugin not installed");
     }
-    const configPath = path2.join(installation.installPath, "config.json");
+    const configPath = path2.join(this.config.pluginDir, `${pluginId}@${manifest.version}`, "config.json");
     await fs2.writeJSON(configPath, config, { spaces: 2 });
   }
-  // 重置插件配置
-  async resetPluginConfig(pluginName) {
-    const installation = this.installations.get(pluginName);
-    if (!installation) {
-      throw new PluginError(pluginName, "NOT_INSTALLED", "Plugin not installed");
-    }
-    const configPath = path2.join(installation.installPath, "config.json");
-    await fs2.remove(configPath);
-  }
-  // 批量操作方法
-  async installMultiplePlugins(plugins, options) {
-    const maxConcurrent = this.config.maxConcurrent || 3;
-    const chunks = [];
-    for (let i = 0; i < plugins.length; i += maxConcurrent) {
-      const chunk = plugins.slice(i, i + maxConcurrent);
-      chunks.push(chunk);
-    }
-    for (const chunk of chunks) {
-      await Promise.all(chunk.map((plugin) => this.installPlugin(plugin, options)));
-    }
-  }
-  async uninstallMultiplePlugins(pluginNames) {
-    for (const name of pluginNames) {
-      await this.uninstallPlugin(name);
-    }
-  }
-  async enableMultiplePlugins(pluginNames) {
-    for (const name of pluginNames) {
-      await this.setPluginEnabled(name, true);
-    }
-  }
-  async disableMultiplePlugins(pluginNames) {
-    for (const name of pluginNames) {
-      await this.setPluginEnabled(name, false);
-    }
-  }
-  // 插件仓库操作
-  async refreshRegistry() {
-    await this.getAvailablePlugins();
-  }
-  // public async validatePlugin(plugin: PluginPackage): Promise<boolean> {
-  //     // 实现插件验证逻辑
-  //     return true;
-  // }
-  async registerPlugin(plugin) {
-    const name = plugin.getName();
-    if (this.plugins.has(name)) {
-      throw new PluginError(name, "ALREADY_REGISTERED", "Plugin already registered");
-    }
-    this.plugins.set(name, plugin);
-  }
-  async unregisterPlugin(name) {
-    const plugin = this.plugins.get(name);
-    if (plugin) {
-      await plugin.stop();
-      this.plugins.delete(name);
-    }
-  }
-  // 依赖管理
-  async validateDependencies(name) {
-    const installation = this.installations.get(name);
-    if (!installation) return false;
-    return true;
-  }
-  // public async getDependencyGraph(name: string): Promise<Map<string, string[]>> {
-  //     const graph = new Map<string, string[]>();
-  //     // 实现依赖图生成逻辑
-  //     return graph;
-  // }
-  // 文件系统操作
-  async createPluginDirectory(name) {
-    const pluginPath = path2.join(this.config.pluginDir, name);
-    await fs2.ensureDir(pluginPath);
-    return pluginPath;
-  }
-  async cleanupPluginDirectory(name) {
-    const pluginPath = path2.join(this.config.pluginDir, name);
-    await fs2.remove(pluginPath);
-  }
-  // 错误处理
-  handleError(error, pluginName) {
-    var _a, _b;
-    if (pluginName) {
-      if (!this.errors.has(pluginName)) {
-        this.errors.set(pluginName, []);
-      }
-      (_a = this.errors.get(pluginName)) == null ? void 0 : _a.push(error);
-    }
-    (_b = this.config.logger) == null ? void 0 : _b.error(error.message);
-  }
-  getLastError(pluginName) {
-    const errors = this.errors.get(pluginName);
-    return errors ? errors[errors.length - 1] : null;
-  }
-  // 统计和监控
-  updateUsageStats(name) {
-    const installation = this.installations.get(name);
-    if (installation) {
-      installation.lastUsed = /* @__PURE__ */ new Date();
-      installation.usageCount++;
-    }
-  }
-  getPluginStats(name) {
-    const installation = this.installations.get(name);
-    return {
-      usageCount: (installation == null ? void 0 : installation.usageCount) || 0,
-      lastUsed: installation == null ? void 0 : installation.lastUsed,
-      errors: this.errors.get(name) || [],
-      performance: {
-        loadTime: 0,
-        // 实现性能统计
-        memoryUsage: 0
-      }
-    };
-  }
-  // 系统维护
-  async cleanup() {
-    for (const [name, plugin] of this.plugins) {
-      await plugin.stop();
-      this.plugins.delete(name);
-    }
-  }
-  async backup(name) {
-    const installation = this.installations.get(name);
-    if (!installation) {
-      throw new PluginError(name, "NOT_INSTALLED", "Plugin not installed");
-    }
-    return "";
-  }
-  // public async restore(name: string, backupPath: string): Promise<void> {
-  //     // 实现恢复逻辑
-  // }
-  async verify() {
-    return true;
-  }
-  // 工具方法
-  getPluginPath(name) {
-    return path2.join(this.config.pluginDir, name);
-  }
-  isValidPluginName(name) {
-    return /^[@a-z0-9-_]+$/i.test(name);
-  }
-  generatePluginId(name, version) {
-    return `${name}@${version}`;
-  }
-  // 私有辅助方法
-  // private async loadInstalledPlugins(): Promise<void> {
-  //     const pluginDirs = await fs.readdir(this.config.pluginDir);
-  //     for (const dir of pluginDirs) {
-  //         try {
-  //             const installation = await this.loadPluginMetadata(dir);
-  //             if (installation) {
-  //                 this.installations.set(dir, installation);
-  //                 if (installation.enabled) {
-  //                     await this.loadAndRegisterPlugin(installation);
-  //                 }
-  //             }
-  //         } catch (error) {
-  //             this.handleError(error as Error, dir);
-  //         }
-  //     }
-  // }
-  // private async loadPluginMetadata(pluginDir: string): Promise<PluginInstallation | null> {
-  //     const metadataPath = path.join(this.config.pluginDir, pluginDir, 'package.json');
-  //     if (await fs.pathExists(metadataPath)) {
-  //         const metadata = await fs.readJson(metadataPath);
-  //         return {
-  //             metadata,
-  //             installPath: path.join(this.config.pluginDir, pluginDir),
-  //             installedAt: new Date(),
-  //             usageCount: 0,
-  //             enabled: true
-  //         };
-  //     }
-  //     return null;
-  // }
-  getPlugin(name) {
-    const plugin = this.plugins.get(name);
-    if (!plugin) {
-      throw new PluginError(name, "NOT_FOUND", "Plugin not found");
-    }
-    const installation = this.installations.get(name);
-    if (installation) {
-      installation.lastUsed = /* @__PURE__ */ new Date();
-      installation.usageCount++;
-    }
-    return plugin;
-  }
-  getInstalledPlugins() {
-    return Array.from(this.installations.values());
-  }
-  async setPluginEnabled(name, enabled) {
-    const installation = this.installations.get(name);
-    if (!installation) {
-      throw new PluginError(name, "NOT_INSTALLED", "Plugin not installed");
-    }
-    const plugin = this.plugins.get(name);
+  /**
+   * 更新插件
+   * @param pluginId 插件ID
+   * @param options 更新选项
+   */
+  async updatePlugin(pluginId) {
     try {
-      if (enabled && !plugin) {
-        this.emitEvent("onEnable", name);
-      } else if (!enabled && plugin) {
-        await plugin.stop();
-        this.plugins.delete(name);
-        this.emitEvent("onDisable", name);
+      const currentManifest = this.pluginsConfig.get(pluginId);
+      if (!currentManifest) {
+        throw new PluginError(pluginId, "NOT_INSTALLED", "Plugin not installed");
       }
-      installation.enabled = enabled;
+      const latestPlugins = await this.getAvailablePlugins(this.config.pluginRegistry, {});
+      const latestManifest = latestPlugins.find((p) => p.pluginId === pluginId);
+      if (!latestManifest) {
+        throw new PluginError(pluginId, "UPDATE_ERROR", "Plugin not found in registry");
+      }
+      if (latestManifest.version === currentManifest.version) {
+        return;
+      }
+      await this.uninstallPlugin(pluginId);
+      await this.installFromOnline(latestManifest);
+      this.emitEvent("onInstall", pluginId);
     } catch (error) {
       throw new PluginError(
-        name,
-        "STATE_CHANGE_ERROR",
-        `Failed to ${enabled ? "enable" : "disable"} plugin: ${error.message}`,
+        pluginId,
+        "UPDATE_ERROR",
+        `Failed to update plugin: ${error.message}`,
         error
       );
     }
   }
-  isPluginEnabled(name) {
-    const installation = this.installations.get(name);
-    return (installation == null ? void 0 : installation.enabled) ?? false;
-  }
-  addEventListener(type, listener) {
-    var _a;
-    if (!this.eventListeners.has(type)) {
-      this.eventListeners.set(type, /* @__PURE__ */ new Set());
-    }
-    (_a = this.eventListeners.get(type)) == null ? void 0 : _a.add(listener);
-  }
-  removeEventListener(type, listener) {
-    var _a;
-    if (this.eventListeners.has(type)) {
-      (_a = this.eventListeners.get(type)) == null ? void 0 : _a.delete(listener);
-    }
-  }
-  // async extractPlugin(data: Buffer, targetPath: string): Promise<void> {
-  //     // 实现插件包解压逻辑
-  //     // 这里需要根据你的插件包格式选择适当的解压方法
-  // }
-  // private async installDependencies(pluginPath: string, metadata: PluginMetadata): Promise<void> {
-  //     // 实现依赖安装逻辑
-  //     // 可以使用 npm/yarn 安装依赖
-  // }
   emitEvent(type, pluginName) {
     const listeners = this.eventListeners.get(type);
     if (listeners) {
@@ -2542,6 +2355,7 @@ var PluginManager = class {
   }
 };
 export {
+  PluginError,
   PluginManager as default
 };
 //# sourceMappingURL=index.mjs.map

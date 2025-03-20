@@ -1,46 +1,77 @@
+import { HttpsProxyAgent } from 'https-proxy-agent';
+import { SocksProxyAgent } from 'socks-proxy-agent';
+
 interface IPlugin {
-    getName(): string;
-    getConfig(): any;
-    setConfig(config: any): void;
-    getVersion(): string;
-    init(): void | Promise<void>;
-    start(): void | Promise<void>;
-    stop(): void | Promise<void>;
-    validateConfig(): boolean;
+    getMaxTokens(modelName: string, isEmbedding?: boolean): number;
+    getMaxOutputTokens(modelName: string): number;
+    modelLists(): Promise<string[]>;
+    translate(options: TranslationOptions & {
+        signalId?: string;
+    }): Promise<TranslationInput[]>;
+    summarize(options: SummarizeOptions): Promise<string>;
+    generateMindMap(options: MindMapOptions): Promise<string>;
+    chat(options: ChatOptions): Promise<string>;
+    embedding(options: EmbeddingOptions): Promise<EmbeddingResults[] | null>;
+    cancelRequest(operationType: string, id?: string): boolean;
+    cancelAllRequests(): void;
 }
-interface PluginManifest {
-    version: string;
-    title: string;
-    description: string;
-    pluginId: string;
-    category: string;
-    main: string;
-    platforms: string[];
-    arch: string[];
-    icon: string;
-    link: string;
-    author: string;
-    homepage: string;
-    source: string;
-    importType?: 'module' | 'sandbox';
-    provider: {
-        value: string;
-        label: string;
-        disabled?: boolean;
-    };
-    features: string[];
-    configuration: {
-        label: string;
-        key: string;
-        type: string;
-        placeholder: string;
-        description: string;
-        defaultValue?: string;
-        options?: {
-            label: string;
-            value: string;
-        }[];
+interface ProgressCallback {
+    current: number;
+    total: number;
+    status: string;
+}
+interface Message {
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+}
+interface SummarizeOptions {
+    text?: string;
+    filePath?: string;
+    modelName: string;
+    prompt?: string;
+    onChunk?: (chunk: string) => void;
+    onProgress?: (progress: ProgressCallback) => void;
+    signalId?: string;
+}
+interface MindMapOptions {
+    text?: string;
+    filePath?: string;
+    modelName: string;
+    prompt?: string;
+    onChunk?: (chunk: string) => void;
+    onProgress?: (progress: ProgressCallback) => void;
+    httpAgent?: any;
+    signalId?: string;
+}
+interface ChatOptions {
+    prompt?: string;
+    modelName: string;
+    temperature?: number;
+    historyMessages?: Message[];
+    query: string;
+    context?: string;
+    filePaths?: string[];
+    embeddings?: {
+        text: string;
+        filePath: string;
     }[];
+    topK?: number;
+    topP?: number;
+    onChunk?: (chunk: string) => void;
+    signalId?: string;
+}
+interface EmbeddingOptions {
+    text?: string;
+    filePaths?: string[];
+    modelName: string;
+    signalId?: string;
+    id?: string;
+}
+interface EmbeddingResults {
+    text: string;
+    embedding: number[];
+    type: 'text' | 'file';
+    metadata?: Record<string, any>;
 }
 interface TranslationInput {
     text: string;
@@ -55,156 +86,138 @@ interface TranslationOptions {
     preserveFormatting?: boolean;
     glossary?: Record<string, string>;
 }
-
-interface PluginMetadata {
-    name: string;
-    version: string;
+type Platform = 'win32' | 'darwin' | 'linux';
+type Architecture = 'arm64' | 'x64' | 'x86';
+type ImportType = 'module' | 'commonjs';
+interface PluginProvider {
+    value: string;
+    label: string;
+}
+interface PluginConfiguration {
+    label: string;
+    key: string;
+    type: 'input' | 'select' | 'checkbox' | 'radio';
+    required?: boolean;
+    placeholder?: string;
     description: string;
-    author: string;
-    repository: string;
+    defaultValue?: string | number | boolean;
+    options?: Array<{
+        label: string;
+        value: string | number | boolean;
+    }>;
+}
+interface PluginModel {
+    label: string;
+    value: string;
+    maxTokens: number;
+    maxOutputTokens: number;
+    type: 'chat' | 'completion' | 'embedding';
+}
+interface PluginManifest {
+    version: string;
+    title: string;
+    description: string;
+    pluginId: string;
+    category: string;
     main: string;
-    dependencies?: Record<string, string>;
-    config?: Record<string, any>;
+    downloadUrl?: string;
+    platforms: Platform[];
+    arch: Architecture[];
+    icon: string;
+    link: string;
+    author: string;
+    homepage: string;
+    source: string;
+    importType: ImportType;
+    provider: PluginProvider;
+    features: string[];
+    configuration: PluginConfiguration[];
+    models: PluginModel[];
 }
-interface PluginPackage {
-    metadata: PluginMetadata;
-    downloadUrl: string;
-    sha256?: string;
-    isOfficial: boolean;
-    downloads: number;
-    rating: number;
-    lastUpdated: Date;
+interface PluginConfig {
+    [key: string]: string | number | boolean | undefined;
 }
-interface PluginInstallation {
-    metadata: PluginMetadata;
-    installPath: string;
-    installedAt: Date;
-    lastUsed?: Date;
-    usageCount: number;
-    enabled: boolean;
+interface PluginResponse<T = any> {
+    success: boolean;
+    data?: T;
+    error?: {
+        code: string;
+        message: string;
+        details?: any;
+    };
+}
+interface PluginRequest {
+    model?: string;
+    config?: PluginConfig;
+    [key: string]: any;
 }
 
-interface InstallOptions {
-    force?: boolean;
-    skipDependencies?: boolean;
-    config?: Record<string, any>;
-}
-interface UpdateOptions {
-    keepConfig?: boolean;
-    backup?: boolean;
-}
-interface PluginEventListeners {
-    onInstall?: (pluginName: string) => void | Promise<void>;
-    onUninstall?: (pluginName: string) => void | Promise<void>;
-    onEnable?: (pluginName: string) => void | Promise<void>;
-    onDisable?: (pluginName: string) => void | Promise<void>;
-    onError?: (pluginName: string, error: Error) => void | Promise<void>;
-}
 interface PluginManagerConfig {
     pluginRegistry: string;
     pluginDir: string;
+    autoUpdate: boolean;
+    maxConcurrent: number;
+    timeout: number;
     buildInPluginDir?: string;
-    autoUpdate?: boolean;
-    maxConcurrent?: number;
-    timeout?: number;
-    proxy?: string;
     logger?: {
-        info: (message: string) => void;
         error: (message: string) => void;
-        warn: (message: string) => void;
-        debug: (message: string) => void;
     };
-    security?: {
-        validateChecksum: boolean;
-        allowUnsigned: boolean;
-        trustedAuthors: string[];
-    };
-    storage?: {
-        type: 'file' | 'memory' | 'custom';
-        path?: string;
-        custom?: any;
-    };
+}
+interface PluginEventListeners {
+    onInstall: (pluginId: string) => void;
+    onUninstall: (pluginId: string) => void;
+}
+interface InstallOptions {
+    force?: boolean;
 }
 declare class PluginError extends Error {
-    readonly pluginName: string;
-    readonly code: string;
-    readonly originalError?: Error | undefined;
-    constructor(pluginName: string, code: string, message: string, originalError?: Error | undefined);
+    pluginId: string;
+    code: string;
+    originalError?: any | undefined;
+    constructor(pluginId: string, code: string, message: string, originalError?: any | undefined);
 }
-declare enum PluginStatus {
-    INSTALLED = "installed",
-    ENABLED = "enabled",
-    DISABLED = "disabled",
-    ERROR = "error",
-    UPDATING = "updating",
-    UNINSTALLING = "uninstalling",
-    NOT_INSTALLED = "not_installed"
+interface IPluginManager {
+    getPlugins(): Map<string, IPlugin>;
+    getPluginsConfig(): Promise<Map<string, any>>;
+    loadPlugin(pluginId: string): Promise<any>;
+    getAvailablePlugins(url: string, options: {
+        httpAgent?: HttpsProxyAgent<string> | SocksProxyAgent;
+    }): Promise<PluginManifest[]>;
+    installFromPemox(pemoxPath: string, options?: InstallOptions): Promise<void>;
+    installMultipleFromPemox(pemoxPaths: string[], options?: InstallOptions): Promise<void>;
+    installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<void>;
+    uninstallPlugin(pluginId: string): Promise<void>;
+    getPluginConfig<T = any>(pluginId: string): Promise<T>;
+    setPluginConfig<T = any>(pluginId: string, config: T): Promise<void>;
+    updatePlugin(pluginId: string): Promise<void>;
 }
 
-declare class PluginManager {
+declare class PluginManager implements IPluginManager {
     private plugins;
     private pluginsConfig;
-    private installations;
     private config;
     private eventListeners;
     private defaultTimeout;
-    private errors;
     constructor(config: Partial<PluginManagerConfig>);
     private init;
+    private _loadLocalPluginsConfig;
     getPlugins(): Map<string, IPlugin>;
     getPluginsConfig(): Promise<Map<string, any>>;
     private _loadBuildInPlugins;
     private _loadPluginsConfig;
     loadPlugin(pluginId: string): Promise<any>;
     private _loadAndRegisterPlugin;
-    getConfig(): PluginManagerConfig;
-    setConfig(config: Partial<PluginManagerConfig>): void;
-    getAvailablePlugins(): Promise<PluginPackage[]>;
-    searchPlugins(query: string): Promise<PluginPackage[]>;
-    getPluginDetails(pluginName: string): Promise<PluginPackage | null>;
-    installPlugin(pluginPackage: PluginPackage, options?: InstallOptions): Promise<void>;
-    uninstallPlugin(name: string): Promise<void>;
-    updatePlugin(name: string, options?: UpdateOptions): Promise<void>;
-    getPluginStatus(name: string): PluginStatus;
-    findPlugin(predicate: (plugin: IPlugin) => boolean): IPlugin | undefined;
-    getPluginConfig<T = any>(pluginName: string): Promise<T>;
-    setPluginConfig<T = any>(pluginName: string, config: T): Promise<void>;
-    resetPluginConfig(pluginName: string): Promise<void>;
-    installMultiplePlugins(plugins: PluginPackage[], options?: InstallOptions): Promise<void>;
-    uninstallMultiplePlugins(pluginNames: string[]): Promise<void>;
-    enableMultiplePlugins(pluginNames: string[]): Promise<void>;
-    disableMultiplePlugins(pluginNames: string[]): Promise<void>;
-    refreshRegistry(): Promise<void>;
-    registerPlugin(plugin: IPlugin): Promise<void>;
-    unregisterPlugin(name: string): Promise<void>;
-    validateDependencies(name: string): Promise<boolean>;
-    createPluginDirectory(name: string): Promise<string>;
-    cleanupPluginDirectory(name: string): Promise<void>;
-    handleError(error: Error, pluginName?: string): void;
-    getLastError(pluginName: string): PluginError | null;
-    updateUsageStats(name: string): void;
-    getPluginStats(name: string): {
-        usageCount: number;
-        lastUsed: Date | undefined;
-        errors: PluginError[];
-        performance: {
-            loadTime: number;
-            memoryUsage: number;
-        };
-    };
-    cleanup(): Promise<void>;
-    backup(name: string): Promise<string>;
-    verify(): Promise<boolean>;
-    getPluginPath(name: string): string;
-    isValidPluginName(name: string): boolean;
-    generatePluginId(name: string, version: string): string;
-    getPlugin<T extends IPlugin>(name: string): T;
-    getInstalledPlugins(): PluginInstallation[];
-    setPluginEnabled(name: string, enabled: boolean): Promise<void>;
-    isPluginEnabled(name: string): boolean;
-    addEventListener(type: keyof PluginEventListeners, listener: Function): void;
-    removeEventListener(type: keyof PluginEventListeners, listener: Function): void;
+    getAvailablePlugins(url: string, { httpAgent }: {
+        httpAgent?: HttpsProxyAgent<string> | SocksProxyAgent;
+    }): Promise<PluginManifest[]>;
+    installFromPemox(pemoxPath: string, options?: InstallOptions): Promise<void>;
+    installMultipleFromPemox(pemoxPaths: string[], options?: InstallOptions): Promise<void>;
+    installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<void>;
+    uninstallPlugin(pluginId: string): Promise<void>;
+    getPluginConfig<T = any>(pluginId: string): Promise<T>;
+    setPluginConfig<T = any>(pluginId: string, config: T): Promise<void>;
+    updatePlugin(pluginId: string): Promise<void>;
     private emitEvent;
 }
 
-export { type IPlugin, type PluginManifest, type TranslationInput, type TranslationOptions, PluginManager as default };
+export { type Architecture, type ChatOptions, type EmbeddingOptions, type EmbeddingResults, type IPlugin, type IPluginManager, type ImportType, type InstallOptions, type Message, type MindMapOptions, type Platform, type PluginConfig, type PluginConfiguration, PluginError, type PluginEventListeners, type PluginManagerConfig, type PluginManifest, type PluginModel, type PluginProvider, type PluginRequest, type PluginResponse, type ProgressCallback, type SummarizeOptions, type TranslationInput, type TranslationOptions, PluginManager as default };
