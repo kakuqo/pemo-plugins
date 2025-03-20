@@ -1984,39 +1984,12 @@ var PluginManager = class {
   async init() {
     try {
       await fs2.ensureDir(this.config.pluginDir);
-      await this._loadLocalPluginsConfig();
       if (this.config.buildInPluginDir) {
         await this._loadBuildInPlugins(this.config.buildInPluginDir, this.config.pluginDir);
       }
+      await this.getPluginsConfig();
     } catch (error) {
       console.error("Failed to initialize PluginManager:", error);
-      throw error;
-    }
-  }
-  /**
-   * 加载本地插件目录下的所有插件配置
-   */
-  async _loadLocalPluginsConfig() {
-    try {
-      const pluginDirs = await fs2.readdir(this.config.pluginDir);
-      for (const dir of pluginDirs) {
-        try {
-          const manifestPath = path2.join(this.config.pluginDir, dir, "manifest.json");
-          if (await fs2.pathExists(manifestPath)) {
-            const manifest = await fs2.readJSON(manifestPath);
-            if (!manifest.pluginId || !manifest.version) {
-              console.warn(`Invalid manifest in plugin directory: ${dir}`);
-              continue;
-            }
-            this.pluginsConfig.set(manifest.pluginId, manifest);
-            console.log(`Loaded plugin config: ${manifest.pluginId}@${manifest.version}`);
-          }
-        } catch (error) {
-          console.error(`Error loading config for plugin ${dir}:`, error);
-        }
-      }
-    } catch (error) {
-      console.error("Error loading local plugins config:", error);
       throw error;
     }
   }

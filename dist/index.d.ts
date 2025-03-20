@@ -200,7 +200,6 @@ declare class PluginManager implements IPluginManager {
     private defaultTimeout;
     constructor(config: Partial<PluginManagerConfig>);
     private init;
-    private _loadLocalPluginsConfig;
     getPlugins(): Map<string, IPlugin>;
     getPluginsConfig(): Promise<Map<string, any>>;
     private _loadBuildInPlugins;
