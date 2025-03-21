@@ -193,11 +193,21 @@ interface IPluginManager {
     addEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
     removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
 }
+interface AgentInfo {
+    id: string;
+    name: string;
+    description: string;
+    category: string;
+    avatar: string;
+    author: string;
+    capabilities: string[];
+}
 
 declare class PluginManager implements IPluginManager {
     private plugins;
     private pluginsConfig;
     private uninstallPlugins;
+    private agentInfo;
     private config;
     private eventListeners;
     private defaultTimeout;
@@ -205,7 +215,9 @@ declare class PluginManager implements IPluginManager {
     private init;
     getPlugins(): Map<string, IPlugin>;
     getPluginsConfig(): Promise<Map<string, any>>;
+    getAgentInfo(): Promise<AgentInfo[]>;
     getUninstallPlugins(): Promise<Map<string, string>>;
+    private _loadAgentInfo;
     private _loadBuildInPlugins;
     private _loadPluginsConfig;
     loadPlugin(pluginId: string): Promise<any>;
@@ -225,4 +237,4 @@ declare class PluginManager implements IPluginManager {
     removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
 }
 
-export { type Architecture, type ChatOptions, type EmbeddingOptions, type EmbeddingResults, type IPlugin, type IPluginManager, type ImportType, type InstallOptions, type Message, type MindMapOptions, type Platform, type PluginConfig, type PluginConfiguration, PluginError, type PluginEventListeners, type PluginManagerConfig, type PluginManifest, type PluginModel, type PluginProvider, type PluginRequest, type PluginResponse, type ProgressCallback, type SummarizeOptions, type TranslationInput, type TranslationOptions, PluginManager as default };
+export { type AgentInfo, type Architecture, type ChatOptions, type EmbeddingOptions, type EmbeddingResults, type IPlugin, type IPluginManager, type ImportType, type InstallOptions, type Message, type MindMapOptions, type Platform, type PluginConfig, type PluginConfiguration, PluginError, type PluginEventListeners, type PluginManagerConfig, type PluginManifest, type PluginModel, type PluginProvider, type PluginRequest, type PluginResponse, type ProgressCallback, type SummarizeOptions, type TranslationInput, type TranslationOptions, PluginManager as default };

@@ -1971,6 +1971,7 @@ var PluginManager = class {
     this.plugins = /* @__PURE__ */ new Map();
     this.pluginsConfig = /* @__PURE__ */ new Map();
     this.uninstallPlugins = /* @__PURE__ */ new Map();
+    this.agentInfo = [];
     this.eventListeners = /* @__PURE__ */ new Map();
     this.config = {
       pluginRegistry: process.env.PLUGIN_REGISTRY || "",
@@ -2007,6 +2008,12 @@ var PluginManager = class {
     }
     return this.pluginsConfig;
   }
+  async getAgentInfo() {
+    if (this.agentInfo.length === 0) {
+      this.agentInfo = await this._loadAgentInfo();
+    }
+    return this.agentInfo;
+  }
   async getUninstallPlugins() {
     if (this.uninstallPlugins.size === 0) {
       const uninstallPath = path2.join(this.config.pluginDir, "uninstall.json");
@@ -2015,6 +2022,16 @@ var PluginManager = class {
       }
     }
     return this.uninstallPlugins;
+  }
+  async _loadAgentInfo() {
+    const pluginDir = this.config.pluginDir;
+    const pluginDirs = await fs2.readdir(pluginDir);
+    for (const dir of pluginDirs) {
+      const agentPath = path2.join(pluginDir, dir, "Agent.json");
+      const agent = await fs2.readJSON(agentPath);
+      this.agentInfo.push(agent);
+    }
+    return this.agentInfo;
   }
   /**
   * 加载本地预设插件，将里面已经存在的插件复制到用户的插件安装目录
