@@ -2313,8 +2313,19 @@ var PluginManager = class {
     if (!manifest) {
       throw new PluginError(pluginId, "NOT_INSTALLED", "Plugin not installed");
     }
-    const configPath = path2.join(this.config.pluginDir, `${pluginId}@${manifest.version}`, "config.json");
+    const configPath = path2.join(this.config.pluginDir, `${pluginId}@${manifest.version}`, "manifest.json");
     await fs2.writeJSON(configPath, config, { spaces: 2 });
+    this.pluginsConfig.set(pluginId, config);
+  }
+  /**
+   * 设置agent配置
+   * @param data agent配置
+   */
+  async setAgentConfig(data) {
+    const agentPath = path2.join(this.config.pluginDir, "Agent.json");
+    this.agentInfo.push(data);
+    await fs2.writeJSON(agentPath, this.agentInfo, { spaces: 2 });
+    return this.agentInfo;
   }
   /**
    * 更新插件

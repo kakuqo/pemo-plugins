@@ -188,7 +188,7 @@ interface IPluginManager {
     installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<void>;
     uninstallPlugin(pluginId: string): Promise<void>;
     getPluginConfig<T = any>(pluginId: string): Promise<T>;
-    setPluginConfig<T = any>(pluginId: string, config: T): Promise<void>;
+    setPluginConfig(pluginId: string, config: PluginManifest): Promise<void>;
     updatePlugin(pluginId: string): Promise<void>;
     addEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
     removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
@@ -201,6 +201,8 @@ interface AgentInfo {
     avatar: string;
     author: string;
     capabilities: string[];
+    createdAt: string;
+    updatedAt: string;
 }
 
 declare class PluginManager implements IPluginManager {
@@ -230,7 +232,8 @@ declare class PluginManager implements IPluginManager {
     installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<void>;
     uninstallPlugin(pluginId: string): Promise<void>;
     getPluginConfig<T = any>(pluginId: string): Promise<T>;
-    setPluginConfig<T = any>(pluginId: string, config: T): Promise<void>;
+    setPluginConfig(pluginId: string, config: PluginManifest): Promise<void>;
+    setAgentConfig(data: AgentInfo): Promise<AgentInfo[]>;
     updatePlugin(pluginId: string): Promise<void>;
     private emitEvent;
     addEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
