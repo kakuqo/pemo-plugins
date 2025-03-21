@@ -2351,6 +2351,28 @@ var PluginManager = class {
       });
     }
   }
+  /**
+   * 添加事件监听器
+   * @param type 事件类型
+   * @param listener 监听器函数
+   */
+  addEventListener(type, listener) {
+    if (!this.eventListeners.has(type)) {
+      this.eventListeners.set(type, /* @__PURE__ */ new Set());
+    }
+    this.eventListeners.get(type).add(listener);
+  }
+  /**
+   * 移除事件监听器
+   * @param type 事件类型
+   * @param listener 监听器函数
+   */
+  removeEventListener(type, listener) {
+    const listeners = this.eventListeners.get(type);
+    if (listeners) {
+      listeners.delete(listener);
+    }
+  }
 };
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

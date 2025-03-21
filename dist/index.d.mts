@@ -190,6 +190,8 @@ interface IPluginManager {
     getPluginConfig<T = any>(pluginId: string): Promise<T>;
     setPluginConfig<T = any>(pluginId: string, config: T): Promise<void>;
     updatePlugin(pluginId: string): Promise<void>;
+    addEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
+    removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
 }
 
 declare class PluginManager implements IPluginManager {
@@ -219,6 +221,8 @@ declare class PluginManager implements IPluginManager {
     setPluginConfig<T = any>(pluginId: string, config: T): Promise<void>;
     updatePlugin(pluginId: string): Promise<void>;
     private emitEvent;
+    addEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
+    removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
 }
 
 export { type Architecture, type ChatOptions, type EmbeddingOptions, type EmbeddingResults, type IPlugin, type IPluginManager, type ImportType, type InstallOptions, type Message, type MindMapOptions, type Platform, type PluginConfig, type PluginConfiguration, PluginError, type PluginEventListeners, type PluginManagerConfig, type PluginManifest, type PluginModel, type PluginProvider, type PluginRequest, type PluginResponse, type ProgressCallback, type SummarizeOptions, type TranslationInput, type TranslationOptions, PluginManager as default };
