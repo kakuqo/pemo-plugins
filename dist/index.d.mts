@@ -206,13 +206,12 @@ interface AgentConfig {
 interface AgentInfo {
     id: string;
     name: string;
-    description: string;
-    category: string;
-    avatar: string;
-    author: string;
-    capabilities: string[];
-    createdAt: string;
-    updatedAt: string;
+    description?: string;
+    category?: string;
+    author?: string;
+    capabilities?: string[];
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 declare class PluginManager implements IPluginManager {
