@@ -195,6 +195,7 @@ interface IPluginManager {
 declare class PluginManager implements IPluginManager {
     private plugins;
     private pluginsConfig;
+    private uninstallPlugins;
     private config;
     private eventListeners;
     private defaultTimeout;
@@ -202,6 +203,7 @@ declare class PluginManager implements IPluginManager {
     private init;
     getPlugins(): Map<string, IPlugin>;
     getPluginsConfig(): Promise<Map<string, any>>;
+    getUninstallPlugins(): Promise<Map<string, string>>;
     private _loadBuildInPlugins;
     private _loadPluginsConfig;
     loadPlugin(pluginId: string): Promise<any>;

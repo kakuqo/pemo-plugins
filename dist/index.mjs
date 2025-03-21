@@ -1970,6 +1970,7 @@ var PluginManager = class {
     this.defaultTimeout = 1e4;
     this.plugins = /* @__PURE__ */ new Map();
     this.pluginsConfig = /* @__PURE__ */ new Map();
+    this.uninstallPlugins = /* @__PURE__ */ new Map();
     this.eventListeners = /* @__PURE__ */ new Map();
     this.config = {
       pluginRegistry: process.env.PLUGIN_REGISTRY || "",
@@ -1984,6 +1985,7 @@ var PluginManager = class {
   async init() {
     try {
       await fs2.ensureDir(this.config.pluginDir);
+      await this.getUninstallPlugins();
       if (this.config.buildInPluginDir) {
         await this._loadBuildInPlugins(this.config.buildInPluginDir, this.config.pluginDir);
       }
@@ -2004,6 +2006,15 @@ var PluginManager = class {
       });
     }
     return this.pluginsConfig;
+  }
+  async getUninstallPlugins() {
+    if (this.uninstallPlugins.size === 0) {
+      const uninstallPath = path2.join(this.config.pluginDir, "uninstall.json");
+      if (await fs2.pathExists(uninstallPath)) {
+        this.uninstallPlugins = await fs2.readJSON(uninstallPath);
+      }
+    }
+    return this.uninstallPlugins;
   }
   /**
   * 加载本地预设插件，将里面已经存在的插件复制到用户的插件安装目录
@@ -2026,6 +2037,10 @@ var PluginManager = class {
           console.log(version, buildInPluginVersion, compareVersions(version, buildInPluginVersion));
           if (compareVersions(version, buildInPluginVersion) >= 0) {
             console.log(`Skipping plugin: version ${version} is newer than builtin version ${buildInPluginVersion}`);
+            continue;
+          }
+          if (this.uninstallPlugins.has(name)) {
+            console.log(`Skipping plugin: ${name} is uninstalled`);
             continue;
           }
         }
@@ -2243,6 +2258,8 @@ var PluginManager = class {
       const pluginPath = path2.join(this.config.pluginDir, `${pluginId}@${manifest.version}`);
       await fs2.remove(pluginPath);
       this.pluginsConfig.delete(pluginId);
+      this.uninstallPlugins.set(pluginId, manifest.version);
+      await fs2.writeJSON(path2.join(this.config.pluginDir, "uninstall.json"), this.uninstallPlugins, { spaces: 2 });
       this.emitEvent("onUninstall", pluginId);
     } catch (error) {
       throw new PluginError(
