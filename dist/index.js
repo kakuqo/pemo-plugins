@@ -2034,8 +2034,11 @@ var PluginManager = class {
   async _loadAgentInfo() {
     const pluginDir = this.config.pluginDir;
     const agentPath = path2.join(pluginDir, "Agent.json");
-    const agent = await fs2.readJSON(agentPath);
-    return agent;
+    if (await fs2.pathExists(agentPath)) {
+      const agent = await fs2.readJSON(agentPath);
+      return agent;
+    }
+    return null;
   }
   /**
   * 加载本地预设插件，将里面已经存在的插件复制到用户的插件安装目录

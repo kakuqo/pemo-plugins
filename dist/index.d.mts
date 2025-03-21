@@ -179,6 +179,7 @@ declare class PluginError extends Error {
 interface IPluginManager {
     getPlugins(): Map<string, IPlugin>;
     getPluginsConfig(): Promise<Map<string, any>>;
+    getAgentInfo(): Promise<AgentConfig | null>;
     loadPlugin(pluginId: string): Promise<any>;
     getAvailablePlugins(url: string, options: {
         httpAgent?: HttpsProxyAgent<string> | SocksProxyAgent;
@@ -189,6 +190,7 @@ interface IPluginManager {
     uninstallPlugin(pluginId: string): Promise<void>;
     getPluginConfig<T = any>(pluginId: string): Promise<T>;
     setPluginConfig(pluginId: string, config: PluginManifest): Promise<void>;
+    setAgentConfig(config: AgentConfig): Promise<AgentConfig>;
     updatePlugin(pluginId: string): Promise<void>;
     addEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
     removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
@@ -225,7 +227,7 @@ declare class PluginManager implements IPluginManager {
     private init;
     getPlugins(): Map<string, IPlugin>;
     getPluginsConfig(): Promise<Map<string, any>>;
-    getAgentInfo(): Promise<AgentConfig>;
+    getAgentInfo(): Promise<AgentConfig | null>;
     getUninstallPlugins(): Promise<Map<string, string>>;
     private _loadAgentInfo;
     private _loadBuildInPlugins;
