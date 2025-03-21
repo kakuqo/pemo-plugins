@@ -193,6 +193,14 @@ interface IPluginManager {
     addEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
     removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
 }
+interface AgentConfig {
+    id: string;
+    name: string;
+    icon: string;
+    createdAt: string;
+    updatedAt: string;
+    agents: AgentInfo[];
+}
 interface AgentInfo {
     id: string;
     name: string;
@@ -217,7 +225,7 @@ declare class PluginManager implements IPluginManager {
     private init;
     getPlugins(): Map<string, IPlugin>;
     getPluginsConfig(): Promise<Map<string, any>>;
-    getAgentInfo(): Promise<AgentInfo[]>;
+    getAgentInfo(): Promise<AgentConfig>;
     getUninstallPlugins(): Promise<Map<string, string>>;
     private _loadAgentInfo;
     private _loadBuildInPlugins;
@@ -233,11 +241,11 @@ declare class PluginManager implements IPluginManager {
     uninstallPlugin(pluginId: string): Promise<void>;
     getPluginConfig<T = any>(pluginId: string): Promise<T>;
     setPluginConfig(pluginId: string, config: PluginManifest): Promise<void>;
-    setAgentConfig(data: AgentInfo): Promise<AgentInfo[]>;
+    setAgentConfig(config: AgentConfig): Promise<AgentConfig>;
     updatePlugin(pluginId: string): Promise<void>;
     private emitEvent;
     addEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
     removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
 }
 
-export { type AgentInfo, type Architecture, type ChatOptions, type EmbeddingOptions, type EmbeddingResults, type IPlugin, type IPluginManager, type ImportType, type InstallOptions, type Message, type MindMapOptions, type Platform, type PluginConfig, type PluginConfiguration, PluginError, type PluginEventListeners, type PluginManagerConfig, type PluginManifest, type PluginModel, type PluginProvider, type PluginRequest, type PluginResponse, type ProgressCallback, type SummarizeOptions, type TranslationInput, type TranslationOptions, PluginManager as default };
+export { type AgentConfig, type AgentInfo, type Architecture, type ChatOptions, type EmbeddingOptions, type EmbeddingResults, type IPlugin, type IPluginManager, type ImportType, type InstallOptions, type Message, type MindMapOptions, type Platform, type PluginConfig, type PluginConfiguration, PluginError, type PluginEventListeners, type PluginManagerConfig, type PluginManifest, type PluginModel, type PluginProvider, type PluginRequest, type PluginResponse, type ProgressCallback, type SummarizeOptions, type TranslationInput, type TranslationOptions, PluginManager as default };
