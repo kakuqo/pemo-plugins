@@ -212,6 +212,7 @@ interface AgentInfo {
     capabilities?: string[];
     createdAt?: string;
     updatedAt?: string;
+    version?: string;
 }
 
 declare class PluginManager implements IPluginManager {
