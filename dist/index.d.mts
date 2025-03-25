@@ -2,6 +2,7 @@ import { HttpsProxyAgent } from 'https-proxy-agent';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 
 interface IPlugin {
+    getInstance(config: any): IPlugin;
     getMaxTokens(modelName: string, isEmbedding?: boolean): number;
     getMaxOutputTokens(modelName: string): number;
     modelLists(): Promise<string[]>;
@@ -14,6 +15,11 @@ interface IPlugin {
     embedding(options: EmbeddingOptions): Promise<EmbeddingResults[] | null>;
     cancelRequest(operationType: string, id?: string): boolean;
     cancelAllRequests(): void;
+    stopService(): Promise<boolean>;
+    startService(): Promise<{
+        success: boolean;
+        message?: string;
+    }>;
 }
 interface ProgressCallback {
     current: number;
@@ -85,6 +91,7 @@ interface TranslationOptions {
     domain?: string;
     preserveFormatting?: boolean;
     glossary?: Record<string, string>;
+    signalId?: string;
 }
 type Platform = 'win32' | 'darwin' | 'linux';
 type Architecture = 'arm64' | 'x64' | 'x86';
@@ -106,6 +113,7 @@ interface PluginConfiguration {
         value: string | number | boolean;
     }>;
 }
+type AbortType = 'chat' | 'embedding' | 'translate' | 'summary' | 'mindmap';
 interface PluginModel {
     label: string;
     value: string;
@@ -133,6 +141,7 @@ interface PluginManifest {
     features: string[];
     configuration: PluginConfiguration[];
     models: PluginModel[];
+    fileHash?: string;
 }
 interface PluginConfig {
     [key: string]: string | number | boolean | undefined;
@@ -178,9 +187,9 @@ declare class PluginError extends Error {
 }
 interface IPluginManager {
     getPlugins(): Map<string, IPlugin>;
-    getPluginsConfig(): Promise<Map<string, any>>;
+    getPluginsConfig(): Promise<Map<string, PluginManifest>>;
     getAgentInfo(): Promise<AgentConfig | null>;
-    loadPlugin(pluginId: string): Promise<any>;
+    loadPlugin(pluginId: string): Promise<IPlugin>;
     getAvailablePlugins(url: string, options: {
         httpAgent?: HttpsProxyAgent<string> | SocksProxyAgent;
     }): Promise<PluginManifest[]>;
@@ -188,7 +197,7 @@ interface IPluginManager {
     installMultipleFromPemox(pemoxPaths: string[], options?: InstallOptions): Promise<void>;
     installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<void>;
     uninstallPlugin(pluginId: string): Promise<void>;
-    getPluginConfig<T = any>(pluginId: string): Promise<T>;
+    getPluginConfig(pluginId: string): Promise<PluginManifest>;
     setPluginConfig(pluginId: string, config: PluginManifest): Promise<void>;
     setAgentConfig(config: AgentConfig): Promise<AgentConfig>;
     updatePlugin(pluginId: string): Promise<void>;
@@ -237,9 +246,10 @@ declare class PluginManager implements IPluginManager {
     getAvailablePlugins(url: string, { httpAgent }: {
         httpAgent?: HttpsProxyAgent<string> | SocksProxyAgent;
     }): Promise<PluginManifest[]>;
+    private calculateHash;
     installFromPemox(pemoxPath: string, options?: InstallOptions): Promise<void>;
     installMultipleFromPemox(pemoxPaths: string[], options?: InstallOptions): Promise<void>;
-    installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<void>;
+    installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<any>;
     uninstallPlugin(pluginId: string): Promise<void>;
     getPluginConfig<T = any>(pluginId: string): Promise<T>;
     setPluginConfig(pluginId: string, config: PluginManifest): Promise<void>;
@@ -250,4 +260,4 @@ declare class PluginManager implements IPluginManager {
     removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
 }
 
-export { type AgentConfig, type AgentInfo, type Architecture, type ChatOptions, type EmbeddingOptions, type EmbeddingResults, type IPlugin, type IPluginManager, type ImportType, type InstallOptions, type Message, type MindMapOptions, type Platform, type PluginConfig, type PluginConfiguration, PluginError, type PluginEventListeners, type PluginManagerConfig, type PluginManifest, type PluginModel, type PluginProvider, type PluginRequest, type PluginResponse, type ProgressCallback, type SummarizeOptions, type TranslationInput, type TranslationOptions, PluginManager as default };
+export { type AbortType, type AgentConfig, type AgentInfo, type Architecture, type ChatOptions, type EmbeddingOptions, type EmbeddingResults, type IPlugin, type IPluginManager, type ImportType, type InstallOptions, type Message, type MindMapOptions, type Platform, type PluginConfig, type PluginConfiguration, PluginError, type PluginEventListeners, type PluginManagerConfig, type PluginManifest, type PluginModel, type PluginProvider, type PluginRequest, type PluginResponse, type ProgressCallback, type SummarizeOptions, type TranslationInput, type TranslationOptions, PluginManager as default };

@@ -1965,6 +1965,7 @@ function unzipFile(zipFilePath, outputFolderPath) {
 
 // src/index.ts
 import { compareVersions } from "compare-versions";
+import * as crypto from "crypto";
 var PluginManager = class {
   constructor(config) {
     this.defaultTimeout = 1e4;
@@ -2143,6 +2144,9 @@ var PluginManager = class {
       );
     }
   }
+  calculateHash(buffer) {
+    return crypto.createHash("sha256").update(buffer).digest("hex");
+  }
   /**
    * 从本地.pemox文件安装插件
    * @param pemoxPath .pemox文件的路径
@@ -2222,7 +2226,7 @@ var PluginManager = class {
         const installedVersion = installedManifest.version;
         if (!(options == null ? void 0 : options.force) && compareVersions(version, installedVersion) <= 0) {
           console.log(`Skipping plugin: version ${version} is not newer than installed version ${installedVersion}`);
-          return;
+          return true;
         }
         await this.uninstallPlugin(pluginId);
       }
@@ -2241,10 +2245,19 @@ var PluginManager = class {
         responseType: "arraybuffer",
         timeout: this.defaultTimeout
       });
+      const downloadedHash = this.calculateHash(response.data);
+      if (pluginManifest.fileHash && downloadedHash !== pluginManifest.fileHash) {
+        throw new PluginError(
+          pluginId,
+          "HASH_MISMATCH",
+          `Downloaded file hash (${downloadedHash}) does not match expected hash (${pluginManifest.fileHash})`
+        );
+      }
       await unzipFile(response.data, pluginPath);
       await fs2.writeJSON(path2.join(pluginPath, "manifest.json"), pluginManifest, { spaces: 2 });
       this.pluginsConfig.set(pluginId, pluginManifest);
       this.emitEvent("onInstall", pluginId);
+      return true;
     } catch (error) {
       throw new PluginError(
         pluginManifest.pluginId,
