@@ -178,6 +178,8 @@ interface PluginEventListeners {
 }
 interface InstallOptions {
     force?: boolean;
+    agent?: HttpsProxyAgent<string> | SocksProxyAgent;
+    progressCallback?: (progress: number) => void;
 }
 declare class PluginError extends Error {
     pluginId: string;
@@ -246,7 +248,6 @@ declare class PluginManager implements IPluginManager {
     getAvailablePlugins(url: string, { httpAgent }: {
         httpAgent?: HttpsProxyAgent<string> | SocksProxyAgent;
     }): Promise<PluginManifest[]>;
-    private calculateHash;
     installFromPemox(pemoxPath: string, options?: InstallOptions): Promise<void>;
     installMultipleFromPemox(pemoxPaths: string[], options?: InstallOptions): Promise<void>;
     installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<any>;

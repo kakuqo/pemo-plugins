@@ -1936,13 +1936,15 @@ var PluginError = class extends Error {
 // src/index.ts
 var path2 = __toESM(require("path"));
 var fs2 = __toESM(require("fs-extra"));
-var import_axios = __toESM(require("axios"));
+var import_axios2 = __toESM(require("axios"));
 
 // utils/index.ts
 var import_fs_extra = __toESM(require("fs-extra"));
 var import_path = __toESM(require("path"));
 var import_unzip_stream = __toESM(require_unzip());
 var import_node_fs = __toESM(require("fs"));
+var import_axios = __toESM(require("axios"));
+var crypto = __toESM(require("crypto"));
 async function getFilesWithExtension(directory, extension) {
   const files = await import_fs_extra.default.readdir(directory);
   const filteredFiles = files.filter((file) => import_path.default.extname(file) === extension);
@@ -1970,10 +1972,72 @@ function unzipFile(zipFilePath, outputFolderPath) {
     readStream.pipe(import_unzip_stream.default.Extract({ path: outputFolderPath })).on("error", reject).on("close", resolve2);
   });
 }
+async function downloadFile({ url, savePath, agent, startCallback, progressCallback, completionCallback, errorCallback }) {
+  try {
+    const response = await (0, import_axios.default)({
+      url,
+      method: "GET",
+      responseType: "stream",
+      httpsAgent: agent,
+      timeout: 5e3
+      // 设置超时时间为5秒
+    });
+    const tempFilePath = `${savePath}.downloading`;
+    const writer = import_node_fs.default.createWriteStream(tempFilePath);
+    response.data.pipe(writer);
+    if (startCallback) {
+      startCallback();
+    }
+    let bytesDownloaded = 0;
+    let totalSize = null;
+    response.data.on("data", (chunk) => {
+      bytesDownloaded += chunk.length;
+      if (progressCallback && totalSize) {
+        const progress = bytesDownloaded / totalSize * 100;
+        progressCallback(progress);
+      }
+    });
+    response.data.on("response", (res) => {
+      totalSize = parseInt(res.headers["content-length"], 10);
+    });
+    writer.on("finish", () => {
+      import_node_fs.default.rename(tempFilePath, savePath, (err) => {
+        if (err) {
+          throw err;
+        } else {
+          if (completionCallback) {
+            completionCallback(savePath);
+          }
+        }
+      });
+    });
+  } catch (error) {
+    if (import_axios.default.isAxiosError(error) && error.code === "ECONNABORTED") {
+      console.log("\u8BF7\u6C42\u8D85\u65F6\uFF1A", error);
+      errorCallback == null ? void 0 : errorCallback(error);
+    } else {
+      console.log("\u7F51\u7EDC\u9519\u8BEF\uFF1A", error);
+      errorCallback == null ? void 0 : errorCallback(error);
+    }
+  }
+}
+function calculateFileHash(filePath) {
+  return new Promise((resolve2, reject) => {
+    const hash = crypto.createHash("sha256");
+    const input = import_node_fs.default.createReadStream(filePath);
+    input.on("error", reject);
+    hash.on("readable", () => {
+      const data = hash.read();
+      if (data) {
+        resolve2(data.toString("hex"));
+      }
+    });
+    input.pipe(hash);
+  });
+}
 
 // src/index.ts
 var import_compare_versions = require("compare-versions");
-var crypto = __toESM(require("crypto"));
 var PluginManager = class {
   constructor(config) {
     this.defaultTimeout = 1e4;
@@ -2138,7 +2202,7 @@ var PluginManager = class {
    */
   async getAvailablePlugins(url, { httpAgent }) {
     try {
-      const response = await import_axios.default.get(url, {
+      const response = await import_axios2.default.get(url, {
         headers: { "Content-Type": "application/json" },
         httpsAgent: httpAgent
       });
@@ -2151,9 +2215,6 @@ var PluginManager = class {
         error
       );
     }
-  }
-  calculateHash(buffer) {
-    return crypto.createHash("sha256").update(buffer).digest("hex");
   }
   /**
    * 从本地.pemox文件安装插件
@@ -2225,55 +2286,82 @@ var PluginManager = class {
     }
   }
   async installFromOnline(pluginManifest, options) {
-    try {
-      const pluginId = pluginManifest.pluginId;
-      const version = pluginManifest.version;
-      const pluginPath = path2.join(this.config.pluginDir, `${pluginId}@${version}`);
-      if (this.pluginsConfig.has(pluginId)) {
-        const installedManifest = this.pluginsConfig.get(pluginId);
-        const installedVersion = installedManifest.version;
-        if (!(options == null ? void 0 : options.force) && (0, import_compare_versions.compareVersions)(version, installedVersion) <= 0) {
-          console.log(`Skipping plugin: version ${version} is not newer than installed version ${installedVersion}`);
-          return true;
+    return new Promise(async (resolve2) => {
+      try {
+        const pluginId = pluginManifest.pluginId;
+        const version = pluginManifest.version;
+        const pluginPath = path2.join(this.config.pluginDir, `${pluginId}@${version}`);
+        if (this.pluginsConfig.has(pluginId)) {
+          const installedManifest = this.pluginsConfig.get(pluginId);
+          const installedVersion = installedManifest.version;
+          if (!(options == null ? void 0 : options.force) && (0, import_compare_versions.compareVersions)(version, installedVersion) <= 0) {
+            console.log(`Skipping plugin: version ${version} is not newer than installed version ${installedVersion}`);
+            return true;
+          }
         }
-        await this.uninstallPlugin(pluginId);
-      }
-      await fs2.ensureDir(pluginPath);
-      const downloadUrl = pluginManifest.link;
-      if (!downloadUrl) {
+        await fs2.ensureDir(pluginPath);
+        const downloadUrl = pluginManifest.link;
+        if (!downloadUrl) {
+          throw new PluginError(
+            pluginId,
+            "DOWNLOAD_URL_NOT_FOUND",
+            "Download URL not found"
+          );
+        }
+        console.log("downloadUrl", downloadUrl);
+        const savePath = path2.resolve(this.config.pluginDir, "_download");
+        downloadFile({
+          url: downloadUrl,
+          savePath,
+          startCallback: () => {
+            console.log("Download started");
+          },
+          progressCallback: (progress) => {
+            if (options == null ? void 0 : options.progressCallback) {
+              options.progressCallback(progress);
+            }
+            console.log(`Download progress: ${progress}%`);
+          },
+          completionCallback: async (localPath) => {
+            var _a;
+            console.log(`Download completed. File saved at: ${localPath}`);
+            const hash = await calculateFileHash(localPath);
+            console.log("Check hash:", hash, pluginManifest.fileHash);
+            if (hash === pluginManifest.fileHash) {
+              const oldVersion = (_a = this.pluginsConfig.get(pluginId)) == null ? void 0 : _a.version;
+              const oldPluginPath = path2.join(this.config.pluginDir, `${pluginId}@${oldVersion}`);
+              console.log("remove old plugin", oldPluginPath);
+              await fs2.remove(oldPluginPath);
+              await unzipFile(localPath, pluginPath);
+              this.pluginsConfig.set(pluginId, pluginManifest);
+              resolve2({ success: true, pluginsConfig: this.pluginsConfig });
+            } else {
+              throw new PluginError(
+                pluginId,
+                "HASH_MISMATCH",
+                `Downloaded file hash (${hash}) does not match expected hash (${pluginManifest.fileHash})`
+              );
+            }
+          },
+          errorCallback: (error) => {
+            throw new PluginError(
+              pluginId,
+              "DOWNLOAD_ERROR",
+              `Failed to download plugin: ${error.message}`,
+              error
+            );
+          },
+          agent: options == null ? void 0 : options.agent
+        });
+      } catch (error) {
         throw new PluginError(
-          pluginId,
-          "DOWNLOAD_URL_NOT_FOUND",
-          "Download URL not found"
+          pluginManifest.pluginId,
+          "INSTALL_ERROR",
+          `Failed to install plugin: ${error.message}`,
+          error
         );
       }
-      const response = await (0, import_axios.default)({
-        method: "GET",
-        url: downloadUrl,
-        responseType: "arraybuffer",
-        timeout: this.defaultTimeout
-      });
-      const downloadedHash = this.calculateHash(response.data);
-      if (pluginManifest.fileHash && downloadedHash !== pluginManifest.fileHash) {
-        throw new PluginError(
-          pluginId,
-          "HASH_MISMATCH",
-          `Downloaded file hash (${downloadedHash}) does not match expected hash (${pluginManifest.fileHash})`
-        );
-      }
-      await unzipFile(response.data, pluginPath);
-      await fs2.writeJSON(path2.join(pluginPath, "manifest.json"), pluginManifest, { spaces: 2 });
-      this.pluginsConfig.set(pluginId, pluginManifest);
-      this.emitEvent("onInstall", pluginId);
-      return true;
-    } catch (error) {
-      throw new PluginError(
-        pluginManifest.pluginId,
-        "INSTALL_ERROR",
-        `Failed to install plugin: ${error.message}`,
-        error
-      );
-    }
+    });
   }
   /**
    * 卸载插件
@@ -2364,7 +2452,6 @@ var PluginManager = class {
       if (latestManifest.version === currentManifest.version) {
         return;
       }
-      await this.uninstallPlugin(pluginId);
       await this.installFromOnline(latestManifest);
       this.emitEvent("onInstall", pluginId);
     } catch (error) {
