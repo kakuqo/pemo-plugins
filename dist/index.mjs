@@ -2231,7 +2231,7 @@ var PluginManager = class {
         await this.uninstallPlugin(pluginId);
       }
       await fs2.ensureDir(pluginPath);
-      const downloadUrl = pluginManifest.downloadUrl;
+      const downloadUrl = pluginManifest.link;
       if (!downloadUrl) {
         throw new PluginError(
           pluginId,
@@ -2344,14 +2344,12 @@ var PluginManager = class {
    * @param pluginId 插件ID
    * @param options 更新选项
    */
-  async updatePlugin(pluginId) {
+  async updatePlugin(pluginId, latestManifest) {
     try {
       const currentManifest = this.pluginsConfig.get(pluginId);
       if (!currentManifest) {
         throw new PluginError(pluginId, "NOT_INSTALLED", "Plugin not installed");
       }
-      const latestPlugins = await this.getAvailablePlugins(this.config.pluginRegistry, {});
-      const latestManifest = latestPlugins.find((p) => p.pluginId === pluginId);
       if (!latestManifest) {
         throw new PluginError(pluginId, "UPDATE_ERROR", "Plugin not found in registry");
       }
