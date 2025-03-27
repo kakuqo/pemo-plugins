@@ -199,7 +199,11 @@ interface IPluginManager {
     installFromPemox(pemoxPath: string, options?: InstallOptions): Promise<void>;
     installMultipleFromPemox(pemoxPaths: string[], options?: InstallOptions): Promise<void>;
     installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<void>;
-    uninstallPlugin(pluginId: string): Promise<void>;
+    uninstallPlugin(pluginId: string): Promise<{
+        success: boolean;
+        pluginsConfig: Map<string, PluginManifest>;
+    }>;
+    getUninstallPlugins(): Promise<Map<string, PluginManifest>>;
     getPluginConfig(pluginId: string): Promise<PluginManifest>;
     setPluginConfig(pluginId: string, config: PluginManifest): Promise<void>;
     setAgentConfig(config: AgentConfig): Promise<AgentConfig>;
@@ -239,7 +243,7 @@ declare class PluginManager implements IPluginManager {
     getPlugins(): Map<string, IPlugin>;
     getPluginsConfig(): Promise<Map<string, any>>;
     getAgentInfo(): Promise<AgentConfig | null>;
-    getUninstallPlugins(): Promise<Map<string, string>>;
+    getUninstallPlugins(): Promise<Map<string, PluginManifest>>;
     private _loadAgentInfo;
     private _loadBuildInPlugins;
     private _loadPluginsConfig;
@@ -252,7 +256,10 @@ declare class PluginManager implements IPluginManager {
     installMultipleFromPemox(pemoxPaths: string[], options?: InstallOptions): Promise<void>;
     installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<any>;
     private removeOldPlugin;
-    uninstallPlugin(pluginId: string): Promise<void>;
+    uninstallPlugin(pluginId: string): Promise<{
+        success: boolean;
+        pluginsConfig: Map<string, PluginManifest>;
+    }>;
     getPluginConfig<T = any>(pluginId: string): Promise<T>;
     setPluginConfig(pluginId: string, config: PluginManifest): Promise<void>;
     setAgentConfig(config: AgentConfig): Promise<AgentConfig>;

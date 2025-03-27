@@ -2091,7 +2091,8 @@ var PluginManager = class {
     if (this.uninstallPlugins.size === 0) {
       const uninstallPath = path2.join(this.config.pluginDir, "uninstall.json");
       if (await fs2.pathExists(uninstallPath)) {
-        this.uninstallPlugins = await fs2.readJSON(uninstallPath);
+        const jsonData = await fs2.readJSON(uninstallPath);
+        this.uninstallPlugins = new Map(Object.entries(jsonData));
       }
     }
     return this.uninstallPlugins;
@@ -2116,23 +2117,28 @@ var PluginManager = class {
       console.log("-----------start install local plugins");
       for (const p of res) {
         const pluginPath = path2.resolve(buildInPluginDir, p);
-        const pluginDest = path2.resolve(pluginDir, getFileNameWithoutExtension(p));
-        console.log(pluginPath);
-        if (fs2.existsSync(pluginDest)) {
-          const { name } = path2.parse(pluginDest);
-          const version = name.split("@")[1];
-          const { name: buildInPluginName } = path2.parse(p);
-          const buildInPluginVersion = buildInPluginName.split("@")[1];
+        const { name: buildInPluginName } = path2.parse(p);
+        const buildInPluginId = buildInPluginName.split("@")[0];
+        const buildInPluginVersion = extractVersionFromName(buildInPluginName);
+        const existingDirs = await fs2.readdir(pluginDir);
+        const existingPluginDir = existingDirs.find((dir) => {
+          const pluginId = dir.split("@")[0];
+          return pluginId === buildInPluginId;
+        });
+        if (existingPluginDir) {
+          const version = extractVersionFromName(existingPluginDir);
           console.log(version, buildInPluginVersion, (0, import_compare_versions.compareVersions)(version, buildInPluginVersion));
           if ((0, import_compare_versions.compareVersions)(version, buildInPluginVersion) >= 0) {
-            console.log(`Skipping plugin: version ${version} is newer than builtin version ${buildInPluginVersion}`);
-            continue;
-          }
-          if (this.uninstallPlugins.has(name)) {
-            console.log(`Skipping plugin: ${name} is uninstalled`);
+            console.log(`Skipping plugin ${buildInPluginId}: version ${version} is newer than builtin version ${buildInPluginVersion}`);
             continue;
           }
         }
+        if (this.uninstallPlugins.has(buildInPluginId)) {
+          console.log(`Skipping plugin: ${existingPluginDir} is uninstalled`);
+          continue;
+        }
+        const pluginDest = path2.resolve(pluginDir, getFileNameWithoutExtension(p));
+        console.log(pluginPath, pluginDest);
         await unzipFile(pluginPath, pluginDest);
       }
       console.log("-----------finished");
@@ -2254,12 +2260,12 @@ var PluginManager = class {
         }
         await fs2.ensureDir(pluginPath);
         await fs2.copy(tempDir, pluginPath);
+        await this.removeOldPlugin(pluginId);
         const icon = path2.join(pluginPath, `icon.svg`);
         if (await fs2.pathExists(icon)) {
           manifest.localIcon = icon;
         }
         this.pluginsConfig.set(pluginId, manifest);
-        await this.removeOldPlugin(pluginId);
         this.emitEvent("onInstall", pluginId);
       } finally {
         await fs2.remove(tempDir);
@@ -2332,12 +2338,13 @@ var PluginManager = class {
             console.log("Check hash:", hash, pluginManifest.fileHash);
             if (hash === pluginManifest.fileHash) {
               await unzipFile(localPath, pluginPath);
+              await this.removeOldPlugin(pluginId);
+              await fs2.remove(localPath);
               const icon = path2.join(pluginPath, `icon.svg`);
               if (await fs2.pathExists(icon)) {
                 pluginManifest.localIcon = icon;
               }
               this.pluginsConfig.set(pluginId, pluginManifest);
-              await this.removeOldPlugin(pluginId);
               resolve2({ success: true, pluginsConfig: this.pluginsConfig });
             } else {
               throw new PluginError(
@@ -2369,10 +2376,12 @@ var PluginManager = class {
   }
   async removeOldPlugin(pluginId) {
     var _a;
-    const oldVersion = (_a = this.pluginsConfig.get(pluginId)) == null ? void 0 : _a.version;
-    const oldPluginPath = path2.join(this.config.pluginDir, `${pluginId}@${oldVersion}`);
-    console.log("remove old plugin", oldPluginPath);
-    await fs2.remove(oldPluginPath);
+    if (this.pluginsConfig.has(pluginId)) {
+      const oldVersion = (_a = this.pluginsConfig.get(pluginId)) == null ? void 0 : _a.version;
+      const oldPluginPath = path2.join(this.config.pluginDir, `${pluginId}@${oldVersion}`);
+      console.log("remove old plugin", oldPluginPath);
+      await fs2.remove(oldPluginPath);
+    }
   }
   /**
    * 卸载插件
@@ -2394,9 +2403,15 @@ var PluginManager = class {
       const pluginPath = path2.join(this.config.pluginDir, `${pluginId}@${manifest.version}`);
       await fs2.remove(pluginPath);
       this.pluginsConfig.delete(pluginId);
-      this.uninstallPlugins.set(pluginId, manifest.version);
-      await fs2.writeJSON(path2.join(this.config.pluginDir, "uninstall.json"), this.uninstallPlugins, { spaces: 2 });
+      this.uninstallPlugins.set(pluginId, manifest);
+      const uninstallPluginsObject = Object.fromEntries(this.uninstallPlugins);
+      await fs2.writeJSON(
+        path2.join(this.config.pluginDir, "uninstall.json"),
+        uninstallPluginsObject,
+        { spaces: 2 }
+      );
       this.emitEvent("onUninstall", pluginId);
+      return { success: true, pluginsConfig: this.pluginsConfig };
     } catch (error) {
       throw new PluginError(
         pluginId,
@@ -2482,6 +2497,13 @@ var PluginManager = class {
     }
   }
 };
+function extractVersionFromName(name) {
+  const versionMatch = name.match(/@([\d.]+)$/);
+  if (!versionMatch) {
+    throw new Error(`Invalid plugin name format: ${name}`);
+  }
+  return versionMatch[1];
+}
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   PluginError
