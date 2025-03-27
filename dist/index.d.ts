@@ -131,6 +131,7 @@ interface PluginManifest {
     downloadUrl?: string;
     platforms: Platform[];
     arch: Architecture[];
+    localIcon?: string;
     icon: string;
     link: string;
     author: string;
@@ -250,6 +251,7 @@ declare class PluginManager implements IPluginManager {
     installFromPemox(pemoxPath: string, options?: InstallOptions): Promise<void>;
     installMultipleFromPemox(pemoxPaths: string[], options?: InstallOptions): Promise<void>;
     installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<any>;
+    private removeOldPlugin;
     uninstallPlugin(pluginId: string): Promise<void>;
     getPluginConfig<T = any>(pluginId: string): Promise<T>;
     setPluginConfig(pluginId: string, config: PluginManifest): Promise<void>;

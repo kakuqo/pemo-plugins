@@ -2154,7 +2154,7 @@ var PluginManager = class {
             const manifest = await fs2.readJSON(manifestPath);
             const icon = path2.join(pluginDir, dir, `icon.svg`);
             if (await fs2.pathExists(icon)) {
-              manifest.icon = icon;
+              manifest.localIcon = icon;
             }
             pluginsConfig.set(manifest.pluginId, manifest);
             console.log(`Loaded config for plugin: ${dir}`);
@@ -2251,11 +2251,15 @@ var PluginManager = class {
             console.log(`Skipping plugin: version ${version} is not newer than installed version ${installedVersion}`);
             return;
           }
-          await this.uninstallPlugin(pluginId);
         }
         await fs2.ensureDir(pluginPath);
         await fs2.copy(tempDir, pluginPath);
+        const icon = path2.join(pluginPath, `icon.svg`);
+        if (await fs2.pathExists(icon)) {
+          manifest.localIcon = icon;
+        }
         this.pluginsConfig.set(pluginId, manifest);
+        await this.removeOldPlugin(pluginId);
         this.emitEvent("onInstall", pluginId);
       } finally {
         await fs2.remove(tempDir);
@@ -2323,17 +2327,17 @@ var PluginManager = class {
             console.log(`Download progress: ${progress}%`);
           },
           completionCallback: async (localPath) => {
-            var _a;
             console.log(`Download completed. File saved at: ${localPath}`);
             const hash = await calculateFileHash(localPath);
             console.log("Check hash:", hash, pluginManifest.fileHash);
             if (hash === pluginManifest.fileHash) {
-              const oldVersion = (_a = this.pluginsConfig.get(pluginId)) == null ? void 0 : _a.version;
-              const oldPluginPath = path2.join(this.config.pluginDir, `${pluginId}@${oldVersion}`);
-              console.log("remove old plugin", oldPluginPath);
-              await fs2.remove(oldPluginPath);
               await unzipFile(localPath, pluginPath);
+              const icon = path2.join(pluginPath, `icon.svg`);
+              if (await fs2.pathExists(icon)) {
+                pluginManifest.localIcon = icon;
+              }
               this.pluginsConfig.set(pluginId, pluginManifest);
+              await this.removeOldPlugin(pluginId);
               resolve2({ success: true, pluginsConfig: this.pluginsConfig });
             } else {
               throw new PluginError(
@@ -2362,6 +2366,13 @@ var PluginManager = class {
         );
       }
     });
+  }
+  async removeOldPlugin(pluginId) {
+    var _a;
+    const oldVersion = (_a = this.pluginsConfig.get(pluginId)) == null ? void 0 : _a.version;
+    const oldPluginPath = path2.join(this.config.pluginDir, `${pluginId}@${oldVersion}`);
+    console.log("remove old plugin", oldPluginPath);
+    await fs2.remove(oldPluginPath);
   }
   /**
    * 卸载插件
@@ -2435,36 +2446,6 @@ var PluginManager = class {
     await fs2.writeJSON(agentPath, this.agentInfo, { spaces: 2 });
     return this.agentInfo;
   }
-  /**
-   * 更新插件
-   * @param pluginId 插件ID
-   * @param options 更新选项
-   */
-  // public async updatePlugin(pluginId: string, latestManifest: PluginManifest): Promise<void> {
-  //     try {
-  //         // 获取当前安装的插件配置
-  //         const currentManifest = this.pluginsConfig.get(pluginId);
-  //         if (!currentManifest) {
-  //             throw new PluginError(pluginId, 'NOT_INSTALLED', 'Plugin not installed');
-  //         }
-  //         if (!latestManifest) {
-  //             throw new PluginError(pluginId, 'UPDATE_ERROR', 'Plugin not found in registry');
-  //         }
-  //         // 检查版本
-  //         if (latestManifest.version === currentManifest.version) {
-  //             return; // 已经是最新版本
-  //         }
-  //         // 卸载当前版本
-  //         // await this.uninstallPlugin(pluginId);
-  //         // 安装新版本
-  //         await this.installFromOnline(latestManifest);
-  //         // 触发更新事件
-  //         this.emitEvent('onInstall', pluginId); // 使用 onInstall 事件代替 onUpdate
-  //     } catch (error: any) {
-  //         throw new PluginError(pluginId, 'UPDATE_ERROR',
-  //             `Failed to update plugin: ${error.message}`, error);
-  //     }
-  // }
   emitEvent(type, pluginName) {
     const listeners = this.eventListeners.get(type);
     if (listeners) {
