@@ -2432,29 +2432,31 @@ var PluginManager = class {
    * @param pluginId 插件ID
    * @param options 更新选项
    */
-  async updatePlugin(pluginId, latestManifest) {
-    try {
-      const currentManifest = this.pluginsConfig.get(pluginId);
-      if (!currentManifest) {
-        throw new PluginError(pluginId, "NOT_INSTALLED", "Plugin not installed");
-      }
-      if (!latestManifest) {
-        throw new PluginError(pluginId, "UPDATE_ERROR", "Plugin not found in registry");
-      }
-      if (latestManifest.version === currentManifest.version) {
-        return;
-      }
-      await this.installFromOnline(latestManifest);
-      this.emitEvent("onInstall", pluginId);
-    } catch (error) {
-      throw new PluginError(
-        pluginId,
-        "UPDATE_ERROR",
-        `Failed to update plugin: ${error.message}`,
-        error
-      );
-    }
-  }
+  // public async updatePlugin(pluginId: string, latestManifest: PluginManifest): Promise<void> {
+  //     try {
+  //         // 获取当前安装的插件配置
+  //         const currentManifest = this.pluginsConfig.get(pluginId);
+  //         if (!currentManifest) {
+  //             throw new PluginError(pluginId, 'NOT_INSTALLED', 'Plugin not installed');
+  //         }
+  //         if (!latestManifest) {
+  //             throw new PluginError(pluginId, 'UPDATE_ERROR', 'Plugin not found in registry');
+  //         }
+  //         // 检查版本
+  //         if (latestManifest.version === currentManifest.version) {
+  //             return; // 已经是最新版本
+  //         }
+  //         // 卸载当前版本
+  //         // await this.uninstallPlugin(pluginId);
+  //         // 安装新版本
+  //         await this.installFromOnline(latestManifest);
+  //         // 触发更新事件
+  //         this.emitEvent('onInstall', pluginId); // 使用 onInstall 事件代替 onUpdate
+  //     } catch (error: any) {
+  //         throw new PluginError(pluginId, 'UPDATE_ERROR',
+  //             `Failed to update plugin: ${error.message}`, error);
+  //     }
+  // }
   emitEvent(type, pluginName) {
     const listeners = this.eventListeners.get(type);
     if (listeners) {

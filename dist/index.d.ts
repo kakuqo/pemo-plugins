@@ -202,7 +202,6 @@ interface IPluginManager {
     getPluginConfig(pluginId: string): Promise<PluginManifest>;
     setPluginConfig(pluginId: string, config: PluginManifest): Promise<void>;
     setAgentConfig(config: AgentConfig): Promise<AgentConfig>;
-    updatePlugin(pluginId: string, latestManifest: PluginManifest): Promise<void>;
     addEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
     removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
 }
@@ -255,7 +254,6 @@ declare class PluginManager implements IPluginManager {
     getPluginConfig<T = any>(pluginId: string): Promise<T>;
     setPluginConfig(pluginId: string, config: PluginManifest): Promise<void>;
     setAgentConfig(config: AgentConfig): Promise<AgentConfig>;
-    updatePlugin(pluginId: string, latestManifest: PluginManifest): Promise<void>;
     private emitEvent;
     addEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
     removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
