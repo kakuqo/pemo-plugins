@@ -15,6 +15,7 @@ interface IPlugin {
     embedding(options: EmbeddingOptions): Promise<EmbeddingResults[] | null>;
     cancelRequest(operationType: string, id?: string): boolean;
     cancelAllRequests(): void;
+    checkService(): Promise<boolean>;
     stopService(): Promise<boolean>;
     startService(): Promise<{
         success: boolean;
@@ -53,13 +54,19 @@ interface ChatOptions {
     prompt?: string;
     modelName: string;
     temperature?: number;
-    historyMessages?: Message[];
+    historyMessages?: {
+        role: 'user' | 'assistant' | 'system';
+        content: string;
+    }[];
     query: string;
     context?: string;
-    filePaths?: string[];
+    files?: {
+        filePath: string;
+        fileName: string;
+    }[];
     embeddings?: {
         text: string;
-        filePath: string;
+        fileName: string;
     }[];
     topK?: number;
     topP?: number;
@@ -68,10 +75,12 @@ interface ChatOptions {
 }
 interface EmbeddingOptions {
     text?: string;
-    filePaths?: string[];
+    files?: {
+        filePath: string;
+        fileName: string;
+    }[];
     modelName: string;
     signalId?: string;
-    id?: string;
 }
 interface EmbeddingResults {
     text: string;
@@ -143,6 +152,7 @@ interface PluginManifest {
     configuration: PluginConfiguration[];
     models: PluginModel[];
     fileHash?: string;
+    forceUpdate?: boolean;
 }
 interface PluginConfig {
     [key: string]: string | number | boolean | undefined;
@@ -169,6 +179,8 @@ interface PluginManagerConfig {
     maxConcurrent: number;
     timeout: number;
     buildInPluginDir?: string;
+    pluginListUrl: string;
+    agent?: HttpsProxyAgent<string> | SocksProxyAgent | undefined;
     logger?: {
         error: (message: string) => void;
     };
@@ -246,11 +258,12 @@ declare class PluginManager implements IPluginManager {
     getUninstallPlugins(): Promise<Map<string, PluginManifest>>;
     private _loadAgentInfo;
     private _loadBuildInPlugins;
+    private _loadForceOnlinePlugins;
     private _loadPluginsConfig;
     loadPlugin(pluginId: string): Promise<any>;
     private _loadAndRegisterPlugin;
-    getAvailablePlugins(url: string, { httpAgent }: {
-        httpAgent?: HttpsProxyAgent<string> | SocksProxyAgent;
+    getAvailablePlugins(url: string, options?: {
+        httpAgent?: HttpsProxyAgent<string> | SocksProxyAgent | undefined;
     }): Promise<PluginManifest[]>;
     installFromPemox(pemoxPath: string, options?: InstallOptions): Promise<void>;
     installMultipleFromPemox(pemoxPaths: string[], options?: InstallOptions): Promise<void>;
