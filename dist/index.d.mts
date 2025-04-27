@@ -59,7 +59,7 @@ interface ChatOptions {
         content: string;
     }[];
     query: string;
-    context?: string;
+    contexts?: string[];
     files?: {
         filePath: string;
         fileName: string;

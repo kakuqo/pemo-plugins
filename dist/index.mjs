@@ -2131,6 +2131,7 @@ var PluginManager = class {
           console.log(`Skipping plugin: ${existingPluginDir} is uninstalled`);
           continue;
         }
+        console.log("start install local plugin", `${buildInPluginId}@${buildInPluginVersion}`);
         if (existingPluginDir) {
           await fs2.remove(path2.resolve(pluginDir, existingPluginDir));
         }
@@ -2143,37 +2144,40 @@ var PluginManager = class {
   }
   async _loadForceOnlinePlugins() {
     const fileInfo = await this.getAvailablePlugins(this.config.pluginListUrl, { httpAgent: this.config.agent });
-    const onlinePlugin = fileInfo.filter((item) => item.forceUpdate);
-    if (onlinePlugin.length) {
-      for (const p of onlinePlugin) {
-        const pluginId = p.pluginId;
-        const onlineVersion = p.version;
-        const pluginPath = path2.join(this.config.pluginDir, `${pluginId}@${onlineVersion}`);
-        const existingDirs = await fs2.readdir(this.config.pluginDir);
-        const existingPluginDir = existingDirs.find((dir) => {
-          const pluginId2 = dir.split("@")[0];
-          return pluginId2 === pluginId2;
-        });
-        if (existingPluginDir) {
-          const version = extractVersionFromName(existingPluginDir);
-          console.log(version, p.version, compareVersions(version, p.version));
-          if (compareVersions(version, onlineVersion) >= 0) {
-            console.log(`Skipping plugin ${pluginId}: version ${version} is newer than builtin version ${onlineVersion}`);
+    console.log("fileInfo", fileInfo);
+    if (fileInfo == null ? void 0 : fileInfo.length) {
+      const onlinePlugin = fileInfo.filter((item) => item.forceUpdate);
+      if (onlinePlugin.length) {
+        for (const p of onlinePlugin) {
+          const pluginId = p.pluginId;
+          const onlineVersion = p.version;
+          const pluginPath = path2.join(this.config.pluginDir, `${pluginId}@${onlineVersion}`);
+          const existingDirs = await fs2.readdir(this.config.pluginDir);
+          const existingPluginDir = existingDirs.find((dir) => {
+            const pluginId2 = dir.split("@")[0];
+            return pluginId2 === pluginId2;
+          });
+          if (existingPluginDir) {
+            const version = extractVersionFromName(existingPluginDir);
+            console.log(version, p.version, compareVersions(version, p.version));
+            if (compareVersions(version, onlineVersion) >= 0) {
+              console.log(`Skipping plugin ${pluginId}: version ${version} is newer than builtin version ${onlineVersion}`);
+              continue;
+            }
+          }
+          if (this.uninstallPlugins.has(pluginId)) {
+            console.log(`Skipping plugin: ${existingPluginDir} is uninstalled`);
             continue;
           }
+          if (existingPluginDir) {
+            await fs2.remove(path2.resolve(this.config.pluginDir, existingPluginDir));
+          }
+          const pluginDest = path2.resolve(this.config.pluginDir, `${pluginId}@${onlineVersion}`);
+          console.log(pluginPath, pluginDest);
+          await unzipFile(pluginPath, pluginDest);
         }
-        if (this.uninstallPlugins.has(pluginId)) {
-          console.log(`Skipping plugin: ${existingPluginDir} is uninstalled`);
-          continue;
-        }
-        if (existingPluginDir) {
-          await fs2.remove(path2.resolve(this.config.pluginDir, existingPluginDir));
-        }
-        const pluginDest = path2.resolve(this.config.pluginDir, `${pluginId}@${onlineVersion}`);
-        console.log(pluginPath, pluginDest);
-        await unzipFile(pluginPath, pluginDest);
+        console.log("-----------finished");
       }
-      console.log("-----------finished");
     }
   }
   /**
