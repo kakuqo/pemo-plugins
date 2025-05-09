@@ -2202,7 +2202,7 @@ var PluginManager = class {
           const manifestPath = path2.join(pluginDir, dir, "manifest.json");
           if (await fs2.pathExists(manifestPath)) {
             const manifest = await fs2.readJSON(manifestPath);
-            const icon = path2.join(pluginDir, dir, `icon.svg`);
+            const icon = path2.join(pluginDir, dir, `icon.png`);
             if (await fs2.pathExists(icon)) {
               manifest.localIcon = icon;
             }
