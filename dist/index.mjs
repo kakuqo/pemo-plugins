@@ -2274,6 +2274,7 @@ var PluginManager = class {
       const tempDir = path2.join(this.config.pluginDir, "temp");
       await fs2.ensureDir(tempDir);
       try {
+        console.log("\u89E3\u538B\u6587\u4EF6", (options == null ? void 0 : options.zipFileFunction) ? true : false);
         if (options == null ? void 0 : options.zipFileFunction) {
           await options.zipFileFunction(pemoxPath, tempDir);
         } else {
