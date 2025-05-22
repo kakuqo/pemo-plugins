@@ -2310,17 +2310,18 @@ var PluginManager = class {
           manifest.localIcon = icon;
         }
         this.pluginsConfig.set(pluginId, manifest);
-        this.emitEvent("onInstall", pluginId);
+        return {
+          success: true,
+          pluginsConfig: this.pluginsConfig
+        };
       } finally {
         await fs2.remove(tempDir);
       }
     } catch (error) {
-      throw new PluginError(
-        "system",
-        "PEMOX_INSTALL_ERROR",
-        `Failed to install from pemox file: ${error.message}`,
-        error
-      );
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
   /**

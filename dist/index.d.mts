@@ -208,7 +208,7 @@ interface IPluginManager {
     getAvailablePlugins(url: string, options: {
         httpAgent?: HttpsProxyAgent<string> | SocksProxyAgent;
     }): Promise<PluginManifest[]>;
-    installFromPemox(pemoxPath: string, options?: InstallOptions): Promise<void>;
+    installFromPemox(pemoxPath: string, options?: InstallOptions): Promise<any>;
     installMultipleFromPemox(pemoxPaths: string[], options?: InstallOptions): Promise<void>;
     installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<void>;
     uninstallPlugin(pluginId: string): Promise<{
@@ -265,7 +265,7 @@ declare class PluginManager implements IPluginManager {
     getAvailablePlugins(url: string, options?: {
         httpAgent?: HttpsProxyAgent<string> | SocksProxyAgent | undefined;
     }): Promise<PluginManifest[]>;
-    installFromPemox(pemoxPath: string, options?: InstallOptions): Promise<void>;
+    installFromPemox(pemoxPath: string, options?: InstallOptions): Promise<any>;
     installMultipleFromPemox(pemoxPaths: string[], options?: InstallOptions): Promise<void>;
     installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<any>;
     private removeOldPlugin;
