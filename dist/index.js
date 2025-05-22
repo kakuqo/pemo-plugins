@@ -2282,7 +2282,11 @@ var PluginManager = class {
       const tempDir = path2.join(this.config.pluginDir, "temp");
       await fs2.ensureDir(tempDir);
       try {
-        await unzipFile(pemoxPath, tempDir);
+        if (options == null ? void 0 : options.zipFileFunction) {
+          await options.zipFileFunction(pemoxPath, tempDir);
+        } else {
+          await unzipFile(pemoxPath, tempDir);
+        }
         const manifestPath = path2.join(tempDir, "manifest.json");
         if (!await fs2.pathExists(manifestPath)) {
           throw new PluginError("system", "MANIFEST_NOT_FOUND", "Manifest not found in pemox file");

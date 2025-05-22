@@ -193,6 +193,7 @@ interface InstallOptions {
     force?: boolean;
     agent?: HttpsProxyAgent<string> | SocksProxyAgent;
     progressCallback?: (progress: number) => void;
+    zipFileFunction?: (zipFilePath: string, outputFolderPath: string, callback?: any) => Promise<void>;
 }
 declare class PluginError extends Error {
     pluginId: string;
