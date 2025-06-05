@@ -2198,6 +2198,10 @@ var PluginManager = class {
             if (await fs2.pathExists(icon)) {
               manifest.localIcon = icon;
             }
+            const componentPath = path2.join(pluginDir, dir, "components.js");
+            if (await fs2.pathExists(componentPath)) {
+              manifest.componentPath = componentPath;
+            }
             pluginsConfig.set(manifest.pluginId, manifest);
             console.log(`Loaded config for plugin: ${dir}`);
           }
@@ -2221,6 +2225,95 @@ var PluginManager = class {
     const plugin = await this._loadAndRegisterPlugin(pluginId, pluginPath);
     this.plugins.set(pluginId, plugin);
     return plugin;
+  }
+  /**
+   * 加载插件的动态配置组件JS并渲染到指定容器
+   * @param pluginId 插件ID
+   * @param containerId 容器元素ID
+   * @param componentName 组件名称，默认为'config'
+   * @returns 返回组件实例
+   */
+  async loadPluginComponent(pluginId, containerId, componentName = "config") {
+    try {
+      const manifest = this.pluginsConfig.get(pluginId);
+      if (!manifest) {
+        throw new PluginError(pluginId, "NOT_INSTALLED", "Plugin not installed");
+      }
+      const pluginPath = await getFilesIncludeName(this.config.pluginDir, pluginId);
+      if (!pluginPath) {
+        throw new PluginError(pluginId, "PATH_NOT_FOUND", "Plugin path not found");
+      }
+      const componentPath = path2.resolve(pluginPath, `${componentName}.js`);
+      if (!await fs2.pathExists(componentPath)) {
+        throw new PluginError(
+          pluginId,
+          "COMPONENT_NOT_FOUND",
+          `Component file not found: ${componentName}.js`
+        );
+      }
+      const componentModule = await this._loadComponentScript(componentPath);
+      const componentInfo = {
+        module: componentModule,
+        manifest,
+        containerId,
+        componentPath
+      };
+      this.emitEvent("onComponentLoad", pluginId);
+      return componentInfo;
+    } catch (error) {
+      throw new PluginError(
+        pluginId,
+        "COMPONENT_LOAD_ERROR",
+        `Failed to load component: ${error.message}`,
+        error
+      );
+    }
+  }
+  /**
+   * 动态加载组件脚本文件
+   * @param componentPath 组件文件路径
+   * @returns 返回加载的模块
+   */
+  async _loadComponentScript(componentPath) {
+    try {
+      delete __require.cache[__require.resolve(componentPath)];
+      const componentModule = __require(componentPath);
+      return componentModule;
+    } catch (error) {
+      throw new Error(`Failed to load component script: ${error.message}`);
+    }
+  }
+  /**
+   * 卸载插件组件
+   * @param pluginId 插件ID
+   * @param containerId 容器元素ID
+   */
+  async unloadPluginComponent(pluginId, containerId) {
+    try {
+      this.emitEvent("onComponentUnload", pluginId);
+      return {
+        pluginId,
+        containerId,
+        message: "Component unload event triggered"
+      };
+    } catch (error) {
+      throw new PluginError(
+        pluginId,
+        "COMPONENT_UNLOAD_ERROR",
+        `Failed to unload component: ${error.message}`,
+        error
+      );
+    }
+  }
+  /**
+   * 重新加载插件组件
+   * @param pluginId 插件ID
+   * @param containerId 容器元素ID
+   * @param componentName 组件名称
+   */
+  async reloadPluginComponent(pluginId, containerId, componentName = "config") {
+    await this.unloadPluginComponent(pluginId, containerId);
+    return await this.loadPluginComponent(pluginId, containerId, componentName);
   }
   // 插件加载和注册
   async _loadAndRegisterPlugin(pluginId, pluginPath) {

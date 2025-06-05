@@ -188,6 +188,8 @@ interface PluginManagerConfig {
 interface PluginEventListeners {
     onInstall: (pluginId: string) => void;
     onUninstall: (pluginId: string) => void;
+    onComponentLoad: (pluginId: string) => void;
+    onComponentUnload: (pluginId: string) => void;
 }
 interface InstallOptions {
     force?: boolean;
@@ -220,6 +222,9 @@ interface IPluginManager {
     getPluginConfig(pluginId: string): Promise<PluginManifest>;
     setPluginConfig(pluginId: string, config: PluginManifest): Promise<void>;
     setAgentConfig(config: AgentConfig): Promise<AgentConfig>;
+    loadPluginComponent(pluginId: string, containerId: string, componentName?: string): Promise<any>;
+    unloadPluginComponent(pluginId: string, containerId: string): Promise<void>;
+    reloadPluginComponent(pluginId: string, containerId: string, componentName?: string): Promise<any>;
     addEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
     removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
 }
@@ -262,6 +267,10 @@ declare class PluginManager implements IPluginManager {
     private _loadForceOnlinePlugins;
     private _loadPluginsConfig;
     loadPlugin(pluginId: string): Promise<any>;
+    loadPluginComponent(pluginId: string, containerId: string, componentName?: string): Promise<any>;
+    private _loadComponentScript;
+    unloadPluginComponent(pluginId: string, containerId: string): Promise<void>;
+    reloadPluginComponent(pluginId: string, containerId: string, componentName?: string): Promise<any>;
     private _loadAndRegisterPlugin;
     getAvailablePlugins(url: string, options?: {
         httpAgent?: HttpsProxyAgent<string> | SocksProxyAgent | undefined;
