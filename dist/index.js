@@ -2410,10 +2410,15 @@ var PluginManager = class {
         await fs2.ensureDir(pluginPath);
         await fs2.copy(tempDir, pluginPath);
         await this.removeOldPlugin(pluginId);
-        const icon = path2.join(pluginPath, `icon.svg`);
+        const icon = path2.join(pluginPath, `icon.png`);
         if (await fs2.pathExists(icon)) {
           manifest.localIcon = icon;
         }
+        const componentPath = path2.join(pluginPath, "components.js");
+        if (await fs2.pathExists(componentPath)) {
+          manifest.componentPath = componentPath;
+        }
+        manifest.pluginDir = path2.resolve(pluginPath);
         this.pluginsConfig.set(pluginId, manifest);
         return {
           success: true,
@@ -2490,10 +2495,15 @@ var PluginManager = class {
               await unzipFile(localPath, pluginPath);
               await this.removeOldPlugin(pluginId);
               await fs2.remove(localPath);
-              const icon = path2.join(pluginPath, `icon.svg`);
+              const icon = path2.join(pluginPath, `icon.png`);
               if (await fs2.pathExists(icon)) {
                 pluginManifest.localIcon = icon;
               }
+              const componentPath = path2.join(pluginPath, "components.js");
+              if (await fs2.pathExists(componentPath)) {
+                pluginManifest.componentPath = componentPath;
+              }
+              pluginManifest.pluginDir = path2.resolve(pluginPath);
               this.pluginsConfig.set(pluginId, pluginManifest);
               resolve2({ success: true, pluginsConfig: this.pluginsConfig });
             } else {

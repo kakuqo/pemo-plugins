@@ -150,6 +150,8 @@ interface PluginManifest {
     category: string;
     main: string;
     downloadUrl?: string;
+    componentPath?: string;
+    pluginDir?: string;
     platforms: Platform[];
     arch: Architecture[];
     localIcon?: string;
