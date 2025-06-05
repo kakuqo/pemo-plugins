@@ -2403,8 +2403,11 @@ var PluginManager = class {
           const installedManifest = this.pluginsConfig.get(pluginId);
           const installedVersion = installedManifest.version;
           if (!(options == null ? void 0 : options.force) && (0, import_compare_versions.compareVersions)(version, installedVersion) <= 0) {
-            console.log(`Skipping plugin: version ${version} is not newer than installed version ${installedVersion}`);
-            return;
+            throw new PluginError(
+              pluginId,
+              "VERSION_NOT_NEWER",
+              `Skipping plugin: plugin ${pluginId} is already installed`
+            );
           }
         }
         await fs2.ensureDir(pluginPath);
