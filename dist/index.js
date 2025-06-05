@@ -2210,6 +2210,7 @@ var PluginManager = class {
             if (await fs2.pathExists(componentPath)) {
               manifest.componentPath = componentPath;
             }
+            manifest.pluginDir = pluginDir;
             pluginsConfig.set(manifest.pluginId, manifest);
             console.log(`Loaded config for plugin: ${dir}`);
           }
