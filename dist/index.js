@@ -2328,11 +2328,17 @@ var PluginManager = class {
   async _loadAndRegisterPlugin(pluginId, pluginPath) {
     try {
       const manifestPath = path2.resolve(pluginPath, "manifest.json");
+      if (!await fs2.pathExists(manifestPath)) {
+        throw new PluginError(pluginId, "MANIFEST_NOT_FOUND", "Manifest not found");
+      }
       const manifest = await fs2.readJSON(manifestPath);
       if (!manifest) {
         throw new PluginError(pluginId, "MANIFEST_NOT_FOUND", "Manifest not found");
       }
       const fileEntry = path2.resolve(pluginPath, manifest.main);
+      if (!await fs2.pathExists(fileEntry)) {
+        throw new PluginError(pluginId, "MAIN_NOT_FOUND", "Main not found");
+      }
       return require(fileEntry).default;
     } catch (error) {
       throw new PluginError(pluginId, "LOAD_ERROR", `Failed to load plugin: ${error.message}`, error);

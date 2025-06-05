@@ -39,6 +39,9 @@ interface SummarizeOptions {
     onChunk?: (chunk: string) => void;
     onProgress?: (progress: ProgressCallback) => void;
     signalId?: string;
+    config?: {
+        [key: string]: any;
+    };
 }
 interface MindMapOptions {
     text?: string;
@@ -49,6 +52,9 @@ interface MindMapOptions {
     onProgress?: (progress: ProgressCallback) => void;
     httpAgent?: any;
     signalId?: string;
+    config?: {
+        [key: string]: any;
+    };
 }
 interface ChatOptions {
     prompt?: string;
@@ -72,6 +78,9 @@ interface ChatOptions {
     topP?: number;
     onChunk?: (chunk: string) => void;
     signalId?: string;
+    config?: {
+        [key: string]: any;
+    };
 }
 interface EmbeddingOptions {
     text?: string;
@@ -81,6 +90,9 @@ interface EmbeddingOptions {
     }[];
     modelName: string;
     signalId?: string;
+    config?: {
+        [key: string]: any;
+    };
 }
 interface EmbeddingResults {
     text: string;
