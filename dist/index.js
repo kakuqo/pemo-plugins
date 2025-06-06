@@ -2229,6 +2229,7 @@ var PluginManager = class {
   // 获取插件实例
   async loadPlugin(pluginId) {
     if (this.plugins.has(pluginId)) {
+      console.log("plugin instance already exists", pluginId);
       return this.plugins.get(pluginId);
     }
     const pluginPath = await getFilesIncludeName(this.config.pluginDir, pluginId);
@@ -2559,11 +2560,13 @@ var PluginManager = class {
         throw new PluginError(pluginId, "NOT_INSTALLED", "Plugin not installed");
       }
       const plugin = this.plugins.get(pluginId);
+      console.log("plugin", JSON.stringify(this.plugins, null, 2), plugin, pluginId);
       if (plugin) {
         if (typeof plugin.cancelAllRequests === "function") {
           await plugin.cancelAllRequests();
         }
         this.plugins.delete(pluginId);
+        console.log("delete plugin instance", pluginId);
       }
       const pluginPath = path2.join(this.config.pluginDir, `${pluginId}@${manifest.version}`);
       await fs2.remove(pluginPath);
