@@ -2141,7 +2141,9 @@ var PluginManager = class {
         }
         console.log("start install local plugin", `${buildInPluginId}@${buildInPluginVersion}`);
         if (existingPluginDir) {
-          await fs2.remove(path2.resolve(pluginDir, existingPluginDir));
+          const pluginDest2 = path2.resolve(pluginDir, existingPluginDir);
+          await fs2.remove(pluginDest2);
+          console.log("remove plugin", pluginDest2);
         }
         const pluginDest = path2.resolve(pluginDir, getFileNameWithoutExtension(p));
         console.log(pluginPath, pluginDest);
