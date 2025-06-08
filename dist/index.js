@@ -2550,7 +2550,7 @@ var PluginManager = class {
           } else {
             resolve2({
               success: false,
-              error: `Downloaded file hash (${hash}) does not match expected hash (${fileHash})`
+              error: `Downloaded file hash (${hash}) does not match`
             });
           }
         };
