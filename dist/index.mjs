@@ -2488,13 +2488,11 @@ var PluginManager = class {
           console.log(`Download completed. File saved at: ${localPath}`);
           const hash = await calculateFileHash(localPath);
           let fileHash = pluginManifest.fileHash;
-          console.log("macFileHash", process.platform, pluginManifest.macFileHash, pluginManifest.winFileHash);
           if (process.platform === "darwin" && pluginManifest.macFileHash) {
             fileHash = pluginManifest.macFileHash;
           } else if (process.platform === "win32" && pluginManifest.winFileHash) {
             fileHash = pluginManifest.winFileHash;
           }
-          console.log("Check hash:", hash, fileHash);
           if (hash === fileHash) {
             if (options == null ? void 0 : options.zipFileFunction) {
               await options.zipFileFunction(localPath, pluginPath);
@@ -2527,7 +2525,7 @@ var PluginManager = class {
             throw new PluginError(
               pluginId,
               "HASH_MISMATCH",
-              `Downloaded file hash (${hash}) does not match expected hash (${pluginManifest.fileHash})`
+              `Downloaded file hash (${hash}) does not match expected hash`
             );
           }
         };
