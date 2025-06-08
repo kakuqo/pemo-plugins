@@ -2426,6 +2426,12 @@ var PluginManager = class {
         }
         manifest.pluginDir = path2.resolve(pluginPath);
         this.pluginsConfig.set(pluginId, manifest);
+        const pluginsConfigObject = Object.fromEntries(this.pluginsConfig);
+        await fs2.writeJSON(
+          path2.join(this.config.pluginDir, "plugins.json"),
+          pluginsConfigObject,
+          { spaces: 2 }
+        );
         return {
           success: true,
           pluginsConfig: this.pluginsConfig
@@ -2471,7 +2477,12 @@ var PluginManager = class {
           }
         }
         await fs2.ensureDir(pluginPath);
-        const downloadUrl = pluginManifest.link;
+        let downloadUrl = pluginManifest.link;
+        if (process.platform === "darwin" && pluginManifest.macLink) {
+          downloadUrl = pluginManifest.macLink;
+        } else if (process.platform === "win32" && pluginManifest.winLink) {
+          downloadUrl = pluginManifest.winLink;
+        }
         if (!downloadUrl) {
           throw new PluginError(
             pluginId,
@@ -2481,55 +2492,133 @@ var PluginManager = class {
         }
         console.log("downloadUrl", downloadUrl);
         const savePath = path2.resolve(this.config.pluginDir, "_download");
-        downloadFile({
-          url: downloadUrl,
-          savePath,
-          startCallback: () => {
-            console.log("Download started");
-          },
-          progressCallback: (progress) => {
-            if (options == null ? void 0 : options.progressCallback) {
-              options.progressCallback(progress);
-            }
-            console.log(`Download progress: ${progress}%`);
-          },
-          completionCallback: async (localPath) => {
-            console.log(`Download completed. File saved at: ${localPath}`);
-            const hash = await calculateFileHash(localPath);
-            console.log("Check hash:", hash, pluginManifest.fileHash);
-            if (hash === pluginManifest.fileHash) {
-              await unzipFile(localPath, pluginPath);
-              await this.removeOldPlugin(pluginId);
-              await fs2.remove(localPath);
-              const icon = path2.join(pluginPath, `icon.png`);
-              if (await fs2.pathExists(icon)) {
-                pluginManifest.localIcon = icon;
+        if (options == null ? void 0 : options.downloadFile) {
+          options.downloadFile({
+            url: downloadUrl,
+            savePath,
+            startCallback: () => {
+              console.log("Download started");
+            },
+            progressCallback: (progress) => {
+              if (options == null ? void 0 : options.progressCallback) {
+                options.progressCallback(progress);
               }
-              const componentPath = path2.join(pluginPath, "components.js");
-              if (await fs2.pathExists(componentPath)) {
-                pluginManifest.componentPath = componentPath;
+              console.log(`Download progress: ${progress}%`);
+            },
+            completionCallback: async (localPath) => {
+              console.log(`Download completed. File saved at: ${localPath}`);
+              const hash = await calculateFileHash(localPath);
+              console.log("Check hash:", hash, pluginManifest.fileHash);
+              if (hash === pluginManifest.fileHash) {
+                if (options == null ? void 0 : options.zipFileFunction) {
+                  await options.zipFileFunction(localPath, pluginPath);
+                } else {
+                  await unzipFile(localPath, pluginPath);
+                }
+                await this.removeOldPlugin(pluginId);
+                await fs2.remove(localPath);
+                const icon = path2.join(pluginPath, `icon.png`);
+                if (await fs2.pathExists(icon)) {
+                  pluginManifest.localIcon = icon;
+                }
+                const componentPath = path2.join(pluginPath, "components.js");
+                if (await fs2.pathExists(componentPath)) {
+                  pluginManifest.componentPath = componentPath;
+                }
+                pluginManifest.pluginDir = path2.resolve(pluginPath);
+                this.pluginsConfig.set(pluginId, pluginManifest);
+                if (this.uninstallPlugins.has(pluginId)) {
+                  this.uninstallPlugins.delete(pluginId);
+                  const uninstallPluginsObject = Object.fromEntries(this.uninstallPlugins);
+                  await fs2.writeJSON(
+                    path2.join(this.config.pluginDir, "uninstall.json"),
+                    uninstallPluginsObject,
+                    { spaces: 2 }
+                  );
+                }
+                resolve2({ success: true, pluginsConfig: this.pluginsConfig });
+              } else {
+                throw new PluginError(
+                  pluginId,
+                  "HASH_MISMATCH",
+                  `Downloaded file hash (${hash}) does not match expected hash (${pluginManifest.fileHash})`
+                );
               }
-              pluginManifest.pluginDir = path2.resolve(pluginPath);
-              this.pluginsConfig.set(pluginId, pluginManifest);
-              resolve2({ success: true, pluginsConfig: this.pluginsConfig });
-            } else {
+            },
+            errorCallback: (error) => {
               throw new PluginError(
                 pluginId,
-                "HASH_MISMATCH",
-                `Downloaded file hash (${hash}) does not match expected hash (${pluginManifest.fileHash})`
+                "DOWNLOAD_ERROR",
+                `Failed to download plugin: ${error.message}`,
+                error
               );
-            }
-          },
-          errorCallback: (error) => {
-            throw new PluginError(
-              pluginId,
-              "DOWNLOAD_ERROR",
-              `Failed to download plugin: ${error.message}`,
-              error
-            );
-          },
-          agent: options == null ? void 0 : options.agent
-        });
+            },
+            agent: options == null ? void 0 : options.agent
+          });
+        } else {
+          downloadFile({
+            url: downloadUrl,
+            savePath,
+            startCallback: () => {
+              console.log("Download started");
+            },
+            progressCallback: (progress) => {
+              if (options == null ? void 0 : options.progressCallback) {
+                options.progressCallback(progress);
+              }
+              console.log(`Download progress: ${progress}%`);
+            },
+            completionCallback: async (localPath) => {
+              console.log(`Download completed. File saved at: ${localPath}`);
+              const hash = await calculateFileHash(localPath);
+              console.log("Check hash:", hash, pluginManifest.fileHash);
+              if (hash === pluginManifest.fileHash) {
+                if (options == null ? void 0 : options.zipFileFunction) {
+                  await options.zipFileFunction(localPath, pluginPath);
+                } else {
+                  await unzipFile(localPath, pluginPath);
+                }
+                await this.removeOldPlugin(pluginId);
+                await fs2.remove(localPath);
+                const icon = path2.join(pluginPath, `icon.png`);
+                if (await fs2.pathExists(icon)) {
+                  pluginManifest.localIcon = icon;
+                }
+                const componentPath = path2.join(pluginPath, "components.js");
+                if (await fs2.pathExists(componentPath)) {
+                  pluginManifest.componentPath = componentPath;
+                }
+                pluginManifest.pluginDir = path2.resolve(pluginPath);
+                this.pluginsConfig.set(pluginId, pluginManifest);
+                if (this.uninstallPlugins.has(pluginId)) {
+                  this.uninstallPlugins.delete(pluginId);
+                  const uninstallPluginsObject = Object.fromEntries(this.uninstallPlugins);
+                  await fs2.writeJSON(
+                    path2.join(this.config.pluginDir, "uninstall.json"),
+                    uninstallPluginsObject,
+                    { spaces: 2 }
+                  );
+                }
+                resolve2({ success: true, pluginsConfig: this.pluginsConfig });
+              } else {
+                throw new PluginError(
+                  pluginId,
+                  "HASH_MISMATCH",
+                  `Downloaded file hash (${hash}) does not match expected hash (${pluginManifest.fileHash})`
+                );
+              }
+            },
+            errorCallback: (error) => {
+              throw new PluginError(
+                pluginId,
+                "DOWNLOAD_ERROR",
+                `Failed to download plugin: ${error.message}`,
+                error
+              );
+            },
+            agent: options == null ? void 0 : options.agent
+          });
+        }
       } catch (error) {
         throw new PluginError(
           pluginManifest.pluginId,

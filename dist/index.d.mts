@@ -157,6 +157,8 @@ interface PluginManifest {
     localIcon?: string;
     icon: string;
     link: string;
+    macLink?: string;
+    winLink?: string;
     author: string;
     homepage: string;
     source: string;
@@ -209,6 +211,15 @@ interface InstallOptions {
     force?: boolean;
     agent?: HttpsProxyAgent<string> | SocksProxyAgent;
     progressCallback?: (progress: number) => void;
+    downloadFile?: (options: {
+        url: string;
+        savePath: string;
+        startCallback?: () => void;
+        progressCallback?: (progress: number) => void;
+        completionCallback?: (localPath: string) => void;
+        errorCallback?: (error: any) => void;
+        agent?: HttpsProxyAgent<string> | SocksProxyAgent | undefined;
+    }) => Promise<void>;
     zipFileFunction?: (zipFilePath: string, outputFolderPath: string, callback?: any) => Promise<void>;
 }
 declare class PluginError extends Error {
