@@ -2593,12 +2593,7 @@ var PluginManager = class {
           });
         }
       } catch (error) {
-        throw new PluginError(
-          pluginManifest.pluginId,
-          "INSTALL_ERROR",
-          `Failed to install plugin: ${error.message}`,
-          error
-        );
+        resolve2({ success: false, error: error.message });
       }
     });
   }
