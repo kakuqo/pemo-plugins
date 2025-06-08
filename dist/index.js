@@ -2586,7 +2586,16 @@ var PluginManager = class {
               console.log(`Download progress: ${progress}%`);
             },
             completionCallback: async (localPath) => {
-              await completionCallback(localPath);
+              try {
+                await completionCallback(localPath);
+              } catch (error) {
+                throw new PluginError(
+                  pluginId,
+                  "DOWNLOAD_ERROR",
+                  `Failed to download plugin: ${error.message}`,
+                  error
+                );
+              }
             },
             errorCallback: (error) => {
               throw new PluginError(
