@@ -2501,11 +2501,10 @@ var PluginManager = class {
               console.log(`Download completed. File saved at: ${localPath}`);
               const hash = await calculateFileHash(localPath);
               let fileHash = pluginManifest.fileHash;
+              console.log("macFileHash", process.platform, pluginManifest.macFileHash, pluginManifest.winFileHash);
               if (process.platform === "darwin" && pluginManifest.macFileHash) {
-                console.log("macFileHash", pluginManifest.macFileHash);
                 fileHash = pluginManifest.macFileHash;
               } else if (process.platform === "win32" && pluginManifest.winFileHash) {
-                console.log("winFileHash", pluginManifest.winFileHash);
                 fileHash = pluginManifest.winFileHash;
               }
               console.log("Check hash:", hash, fileHash);
