@@ -2502,8 +2502,10 @@ var PluginManager = class {
               const hash = await calculateFileHash(localPath);
               let fileHash = pluginManifest.fileHash;
               if (process.platform === "darwin" && pluginManifest.macFileHash) {
+                console.log("macFileHash", pluginManifest.macFileHash);
                 fileHash = pluginManifest.macFileHash;
               } else if (process.platform === "win32" && pluginManifest.winFileHash) {
+                console.log("winFileHash", pluginManifest.winFileHash);
                 fileHash = pluginManifest.winFileHash;
               }
               console.log("Check hash:", hash, fileHash);
