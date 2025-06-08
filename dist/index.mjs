@@ -2051,6 +2051,16 @@ var PluginManager = class {
   }
   async init() {
     try {
+      process.on("unhandledRejection", (reason, promise) => {
+        console.error("Unhandled Rejection at:", promise, "reason:", reason);
+        if (reason && typeof reason === "object" && reason.constructor && reason.constructor.name === "PluginError") {
+          console.error("PluginError details:", {
+            pluginId: reason.pluginId,
+            code: reason.code,
+            message: reason.message
+          });
+        }
+      });
       await fs2.ensureDir(this.config.pluginDir);
       await this.getUninstallPlugins();
       if (this.config.buildInPluginDir) {
@@ -2156,8 +2166,8 @@ var PluginManager = class {
           const pluginPath = path2.join(this.config.pluginDir, `${pluginId}@${onlineVersion}`);
           const existingDirs = await fs2.readdir(this.config.pluginDir);
           const existingPluginDir = existingDirs.find((dir) => {
-            const pluginId2 = dir.split("@")[0];
-            return pluginId2 === pluginId2;
+            const existingPluginId = dir.split("@")[0];
+            return existingPluginId === pluginId;
           });
           if (existingPluginDir) {
             const version = extractVersionFromName(existingPluginDir);
@@ -2220,15 +2230,23 @@ var PluginManager = class {
   }
   // 获取插件实例
   async loadPlugin(pluginId) {
-    if (this.plugins.has(pluginId)) {
-      console.log("plugin instance already exists", pluginId);
-      return this.plugins.get(pluginId);
+    try {
+      if (this.plugins.has(pluginId)) {
+        console.log("plugin instance already exists", pluginId);
+        return this.plugins.get(pluginId);
+      }
+      const pluginPath = await getFilesIncludeName(this.config.pluginDir, pluginId);
+      console.log("pluginPath", pluginPath);
+      const plugin = await this._loadAndRegisterPlugin(pluginId, pluginPath);
+      this.plugins.set(pluginId, plugin);
+      return plugin;
+    } catch (error) {
+      console.error(`Failed to load plugin ${pluginId}:`, error);
+      if (error instanceof PluginError) {
+        throw error;
+      }
+      throw new PluginError(pluginId, "LOAD_ERROR", `Failed to load plugin: ${error.message}`, error);
     }
-    const pluginPath = await getFilesIncludeName(this.config.pluginDir, pluginId);
-    console.log("pluginPath", pluginPath);
-    const plugin = await this._loadAndRegisterPlugin(pluginId, pluginPath);
-    this.plugins.set(pluginId, plugin);
-    return plugin;
   }
   /**
    * 加载插件的动态配置组件JS并渲染到指定容器
@@ -2522,11 +2540,10 @@ var PluginManager = class {
             }
             resolve2({ success: true, pluginsConfig: this.pluginsConfig });
           } else {
-            throw new PluginError(
-              pluginId,
-              "HASH_MISMATCH",
-              `Downloaded file hash (${hash}) does not match expected hash`
-            );
+            resolve2({
+              success: false,
+              error: `Downloaded file hash (${hash}) does not match expected hash (${fileHash})`
+            });
           }
         };
         if (options == null ? void 0 : options.downloadFile) {
@@ -2546,21 +2563,17 @@ var PluginManager = class {
               try {
                 await completionCallback(localPath);
               } catch (error) {
-                throw new PluginError(
-                  pluginId,
-                  "DOWNLOAD_ERROR",
-                  `Failed to download plugin: ${error.message}`,
-                  error
-                );
+                resolve2({
+                  success: false,
+                  error: `Failed to download plugin: ${error.message}`
+                });
               }
             },
             errorCallback: (error) => {
-              throw new PluginError(
-                pluginId,
-                "DOWNLOAD_ERROR",
-                `Failed to download plugin: ${error.message}`,
-                error
-              );
+              resolve2({
+                success: false,
+                error: `Failed to download plugin: ${error.message}`
+              });
             },
             agent: options == null ? void 0 : options.agent
           });
@@ -2581,21 +2594,17 @@ var PluginManager = class {
               try {
                 await completionCallback(localPath);
               } catch (error) {
-                throw new PluginError(
-                  pluginId,
-                  "DOWNLOAD_ERROR",
-                  `Failed to download plugin: ${error.message}`,
-                  error
-                );
+                resolve2({
+                  success: false,
+                  error: `Failed to download plugin: ${error.message}`
+                });
               }
             },
             errorCallback: (error) => {
-              throw new PluginError(
-                pluginId,
-                "DOWNLOAD_ERROR",
-                `Failed to download plugin: ${error.message}`,
-                error
-              );
+              resolve2({
+                success: false,
+                error: `Failed to download plugin: ${error.message}`
+              });
             },
             agent: options == null ? void 0 : options.agent
           });
