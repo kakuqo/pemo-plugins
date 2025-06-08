@@ -168,6 +168,8 @@ interface PluginManifest {
     configuration: PluginConfiguration[];
     models: PluginModel[];
     fileHash?: string;
+    macFileHash?: string;
+    winFileHash?: string;
     forceUpdate?: boolean;
 }
 interface PluginConfig {

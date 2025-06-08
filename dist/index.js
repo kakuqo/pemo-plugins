@@ -2509,7 +2509,13 @@ var PluginManager = class {
               console.log(`Download completed. File saved at: ${localPath}`);
               const hash = await calculateFileHash(localPath);
               console.log("Check hash:", hash, pluginManifest.fileHash);
-              if (hash === pluginManifest.fileHash) {
+              let fileHash = pluginManifest.fileHash;
+              if (process.platform === "darwin" && pluginManifest.macFileHash) {
+                fileHash = pluginManifest.macFileHash;
+              } else if (process.platform === "win32" && pluginManifest.winFileHash) {
+                fileHash = pluginManifest.winFileHash;
+              }
+              if (hash === fileHash) {
                 if (options == null ? void 0 : options.zipFileFunction) {
                   await options.zipFileFunction(localPath, pluginPath);
                 } else {
