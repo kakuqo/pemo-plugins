@@ -2500,13 +2500,13 @@ var PluginManager = class {
             completionCallback: async (localPath) => {
               console.log(`Download completed. File saved at: ${localPath}`);
               const hash = await calculateFileHash(localPath);
-              console.log("Check hash:", hash, pluginManifest.fileHash);
               let fileHash = pluginManifest.fileHash;
               if (process.platform === "darwin" && pluginManifest.macFileHash) {
                 fileHash = pluginManifest.macFileHash;
               } else if (process.platform === "win32" && pluginManifest.winFileHash) {
                 fileHash = pluginManifest.winFileHash;
               }
+              console.log("Check hash:", hash, fileHash);
               if (hash === fileHash) {
                 if (options == null ? void 0 : options.zipFileFunction) {
                   await options.zipFileFunction(localPath, pluginPath);
