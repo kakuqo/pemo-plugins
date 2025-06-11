@@ -2240,7 +2240,6 @@ var PluginManager = class {
   async loadPlugin(pluginId) {
     try {
       if (this.plugins.has(pluginId)) {
-        console.log("plugin instance already exists", pluginId);
         return this.plugins.get(pluginId);
       }
       const pluginPath = await getFilesIncludeName(this.config.pluginDir, pluginId);
