@@ -21,6 +21,7 @@ interface IPlugin {
         success: boolean;
         message?: string;
     }>;
+    synthesize(options: TTSOptions): Promise<string>;
 }
 interface ProgressCallback {
     current: number;
@@ -114,6 +115,24 @@ interface TranslationOptions {
     glossary?: Record<string, string>;
     signalId?: string;
 }
+interface TTSOptions {
+    text: string;
+    outputPath?: string;
+    outputDir?: string;
+    voice?: string;
+    speed?: number;
+    pitch?: number;
+    language?: string;
+    format?: 'audio-16khz-32kbitrate-mono-mp3' | 'audio-24khz-48kbitrate-mono-mp3' | 'audio-48khz-96kbitrate-mono-mp3' | 'audio-48khz-192kbitrate-mono-mp3' | 'riff-16khz-16bit-mono-pcm' | 'riff-24khz-16bit-mono-pcm' | 'riff-48khz-16bit-mono-pcm' | 'webm-16khz-16bit-mono-opus' | 'webm-24khz-16bit-mono-opus';
+    sampleRate?: 16000 | 24000 | 48000;
+    fileFormat?: 'mp3' | 'wav' | 'webm' | 'opus';
+    httpAgent?: string;
+    onProgress?: (progress: {
+        stage: string;
+        message: string;
+    }) => void;
+    onError?: (error: string) => void;
+}
 type Platform = 'win32' | 'darwin' | 'linux';
 type Architecture = 'arm64' | 'x64' | 'x86';
 type ImportType = 'module' | 'commonjs';
@@ -167,6 +186,10 @@ interface PluginManifest {
     features: string[];
     configuration: PluginConfiguration[];
     models: PluginModel[];
+    voices?: {
+        label: string;
+        value: string;
+    }[];
     fileHash?: string;
     macFileHash?: string;
     winFileHash?: string;
@@ -318,4 +341,4 @@ declare class PluginManager implements IPluginManager {
     removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
 }
 
-export { type AbortType, type AgentConfig, type AgentInfo, type Architecture, type ChatOptions, type EmbeddingOptions, type EmbeddingResults, type IPlugin, type IPluginManager, type ImportType, type InstallOptions, type Message, type MindMapOptions, type Platform, type PluginConfig, type PluginConfiguration, PluginError, type PluginEventListeners, type PluginManagerConfig, type PluginManifest, type PluginModel, type PluginProvider, type PluginRequest, type PluginResponse, type ProgressCallback, type SummarizeOptions, type TranslationInput, type TranslationOptions, PluginManager as default };
+export { type AbortType, type AgentConfig, type AgentInfo, type Architecture, type ChatOptions, type EmbeddingOptions, type EmbeddingResults, type IPlugin, type IPluginManager, type ImportType, type InstallOptions, type Message, type MindMapOptions, type Platform, type PluginConfig, type PluginConfiguration, PluginError, type PluginEventListeners, type PluginManagerConfig, type PluginManifest, type PluginModel, type PluginProvider, type PluginRequest, type PluginResponse, type ProgressCallback, type SummarizeOptions, type TTSOptions, type TranslationInput, type TranslationOptions, PluginManager as default };

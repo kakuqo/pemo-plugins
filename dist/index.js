@@ -2225,6 +2225,8 @@ var PluginManager = class {
             manifest.pluginDir = path2.resolve(pluginDir, dir);
             pluginsConfig.set(manifest.pluginId, manifest);
             console.log(`Loaded config for plugin: ${dir}`);
+          } else {
+            await fs2.remove(path2.resolve(pluginDir, dir));
           }
         } catch (error) {
           console.error(`Error loading config for plugin ${dir}:`, error);
