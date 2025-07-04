@@ -15,6 +15,7 @@ interface IPlugin {
     embedding(options: EmbeddingOptions): Promise<EmbeddingResults[] | null>;
     cancelRequest(operationType: string, id?: string): boolean;
     cancelAllRequests(): void;
+    cancelTTS(processId: string): boolean;
     checkService(): Promise<boolean>;
     stopService(): Promise<boolean>;
     startService(): Promise<{
@@ -126,6 +127,7 @@ interface TTSOptions {
     format?: 'audio-16khz-32kbitrate-mono-mp3' | 'audio-24khz-48kbitrate-mono-mp3' | 'audio-48khz-96kbitrate-mono-mp3' | 'audio-48khz-192kbitrate-mono-mp3' | 'riff-16khz-16bit-mono-pcm' | 'riff-24khz-16bit-mono-pcm' | 'riff-48khz-16bit-mono-pcm' | 'webm-16khz-16bit-mono-opus' | 'webm-24khz-16bit-mono-opus';
     sampleRate?: 16000 | 24000 | 48000;
     fileFormat?: 'mp3' | 'wav' | 'webm' | 'opus';
+    signalId?: string;
     httpAgent?: string;
     onProgress?: (progress: {
         stage: string;

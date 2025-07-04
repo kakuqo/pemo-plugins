@@ -2142,11 +2142,6 @@ var PluginManager = class {
           continue;
         }
         console.log("start install local plugin", `${buildInPluginId}@${buildInPluginVersion}`);
-        if (existingPluginDir) {
-          const pluginDest2 = path2.resolve(pluginDir, existingPluginDir);
-          await fs2.remove(pluginDest2);
-          console.log("remove plugin", pluginDest2);
-        }
         const pluginDest = path2.resolve(pluginDir, getFileNameWithoutExtension(p));
         console.log(pluginPath, pluginDest);
         await unzipFile(pluginPath, pluginDest);
@@ -2156,7 +2151,6 @@ var PluginManager = class {
   }
   async _loadForceOnlinePlugins() {
     const fileInfo = await this.getAvailablePlugins(this.config.pluginListUrl, { httpAgent: this.config.agent });
-    console.log("fileInfo", fileInfo);
     if (fileInfo == null ? void 0 : fileInfo.length) {
       const onlinePlugin = fileInfo.filter((item) => item.forceUpdate);
       if (onlinePlugin.length) {
