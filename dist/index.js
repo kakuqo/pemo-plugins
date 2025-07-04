@@ -1773,8 +1773,8 @@ var require_mkdirp = __commonJS({
           // there already.  If so, then hooray!  If not, then something
           // is borked.
           default:
-            xfs.stat(p, function(er2, stat) {
-              if (er2 || !stat.isDirectory()) cb(er, made);
+            xfs.stat(p, function(er2, stat2) {
+              if (er2 || !stat2.isDirectory()) cb(er, made);
               else cb(null, made);
             });
             break;
@@ -1805,13 +1805,13 @@ var require_mkdirp = __commonJS({
           // there already.  If so, then hooray!  If not, then something
           // is borked.
           default:
-            var stat;
+            var stat2;
             try {
-              stat = xfs.statSync(p);
+              stat2 = xfs.statSync(p);
             } catch (err1) {
               throw err0;
             }
-            if (!stat.isDirectory()) throw err0;
+            if (!stat2.isDirectory()) throw err0;
             break;
         }
       }
@@ -2150,6 +2150,11 @@ var PluginManager = class {
           continue;
         }
         console.log("start install local plugin", `${buildInPluginId}@${buildInPluginVersion}`);
+        if (existingPluginDir) {
+          const pluginDest2 = path2.resolve(pluginDir, existingPluginDir);
+          await fs2.remove(pluginDest2);
+          console.log("remove plugin", pluginDest2);
+        }
         const pluginDest = path2.resolve(pluginDir, getFileNameWithoutExtension(p));
         console.log(pluginPath, pluginDest);
         await unzipFile(pluginPath, pluginDest);
@@ -2205,22 +2210,29 @@ var PluginManager = class {
       const pluginsConfig = /* @__PURE__ */ new Map();
       for (const dir of pluginDirs) {
         try {
-          const manifestPath = path2.join(pluginDir, dir, "manifest.json");
-          if (await fs2.pathExists(manifestPath)) {
-            const manifest = await fs2.readJSON(manifestPath);
-            const icon = path2.join(pluginDir, dir, `icon.png`);
-            if (await fs2.pathExists(icon)) {
-              manifest.localIcon = icon;
+          const dirPath = path2.resolve(pluginDir, dir);
+          const stat2 = await fs2.stat(dirPath);
+          if (!stat2.isDirectory()) {
+            continue;
+          }
+          const manifestPath = path2.join(dirPath, "manifest.json");
+          if (dir.includes("@")) {
+            if (await fs2.pathExists(manifestPath)) {
+              const manifest = await fs2.readJSON(manifestPath);
+              const icon = path2.join(pluginDir, dir, `icon.png`);
+              if (await fs2.pathExists(icon)) {
+                manifest.localIcon = icon;
+              }
+              const componentPath = path2.join(pluginDir, dir, "components.js");
+              if (await fs2.pathExists(componentPath)) {
+                manifest.componentPath = componentPath;
+              }
+              manifest.pluginDir = path2.resolve(pluginDir, dir);
+              pluginsConfig.set(manifest.pluginId, manifest);
+              console.log(`Loaded config for plugin: ${dir}`);
+            } else {
+              await fs2.remove(dirPath);
             }
-            const componentPath = path2.join(pluginDir, dir, "components.js");
-            if (await fs2.pathExists(componentPath)) {
-              manifest.componentPath = componentPath;
-            }
-            manifest.pluginDir = path2.resolve(pluginDir, dir);
-            pluginsConfig.set(manifest.pluginId, manifest);
-            console.log(`Loaded config for plugin: ${dir}`);
-          } else {
-            await fs2.remove(path2.resolve(pluginDir, dir));
           }
         } catch (error) {
           console.error(`Error loading config for plugin ${dir}:`, error);
