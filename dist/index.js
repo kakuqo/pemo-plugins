@@ -1972,22 +1972,61 @@ function unzipFile(zipFilePath, outputFolderPath) {
     readStream.pipe(import_unzip_stream.default.Extract({ path: outputFolderPath })).on("error", reject).on("close", resolve2);
   });
 }
-function downloadFile({ url, savePath, agent, startCallback, progressCallback, completionCallback, errorCallback }) {
+function downloadFile({
+  url,
+  savePath,
+  agent,
+  startCallback,
+  progressCallback,
+  completionCallback,
+  errorCallback,
+  abortController
+}) {
   let isCancelled = false;
   let response = null;
   let writer = null;
-  const cancel = () => {
+  let cleanupFunctions = [];
+  const internalAbortController = abortController || new AbortController();
+  const shouldCleanupAbortController = !abortController;
+  const cleanup = () => {
     isCancelled = true;
-    if (response) {
-      response.data.destroy();
+    cleanupFunctions.forEach((cleanupFn) => {
+      try {
+        cleanupFn();
+      } catch (error) {
+        console.log("\u6E05\u7406\u51FD\u6570\u6267\u884C\u5931\u8D25:", error);
+      }
+    });
+    cleanupFunctions = [];
+    if (shouldCleanupAbortController) {
+      internalAbortController.abort();
+    }
+    if (response && response.data) {
+      try {
+        response.data.destroy();
+      } catch (error) {
+        console.log("\u5173\u95ED\u54CD\u5E94\u6D41\u5931\u8D25:", error);
+      }
     }
     if (writer) {
-      writer.end();
+      try {
+        writer.end();
+        writer.destroy();
+      } catch (error) {
+        console.log("\u5173\u95ED\u5199\u5165\u6D41\u5931\u8D25:", error);
+      }
     }
     const tempFilePath = `${savePath}.downloading`;
     if (import_node_fs.default.existsSync(tempFilePath)) {
-      import_node_fs.default.unlinkSync(tempFilePath);
+      try {
+        import_node_fs.default.unlinkSync(tempFilePath);
+      } catch (error) {
+        console.log("\u6E05\u7406\u4E34\u65F6\u6587\u4EF6\u5931\u8D25:", error);
+      }
     }
+  };
+  const cancel = () => {
+    cleanup();
   };
   (async () => {
     try {
@@ -1999,8 +2038,10 @@ function downloadFile({ url, savePath, agent, startCallback, progressCallback, c
         method: "GET",
         responseType: "stream",
         httpsAgent: agent,
-        timeout: 5e3
+        timeout: 5e3,
         // 设置超时时间为5秒
+        signal: internalAbortController.signal
+        // 添加 signal 用于取消
       });
       if (isCancelled) {
         response.data.destroy();
@@ -2016,7 +2057,7 @@ function downloadFile({ url, savePath, agent, startCallback, progressCallback, c
       const totalSize = contentLength ? parseInt(contentLength, 10) : null;
       console.log("totalSize", totalSize);
       let bytesDownloaded = 0;
-      response.data.on("data", (chunk) => {
+      const dataHandler = (chunk) => {
         if (isCancelled) {
           return;
         }
@@ -2027,8 +2068,9 @@ function downloadFile({ url, savePath, agent, startCallback, progressCallback, c
         } else if (progressCallback && !totalSize) {
           progressCallback(-1);
         }
-      });
-      writer.on("finish", () => {
+      };
+      response.data.on("data", dataHandler);
+      const finishHandler = () => {
         if (isCancelled) {
           return;
         }
@@ -2041,24 +2083,41 @@ function downloadFile({ url, savePath, agent, startCallback, progressCallback, c
             }
           }
         });
-      });
-      response.data.on("error", (error) => {
+      };
+      writer.on("finish", finishHandler);
+      const responseErrorHandler = (error) => {
         if (!isCancelled) {
           errorCallback == null ? void 0 : errorCallback(error);
         }
-      });
-      writer.on("error", (error) => {
+      };
+      const writerErrorHandler = (error) => {
         if (!isCancelled) {
           errorCallback == null ? void 0 : errorCallback(error);
         }
+      };
+      response.data.on("error", responseErrorHandler);
+      writer.on("error", writerErrorHandler);
+      cleanupFunctions.push(() => {
+        var _a, _b;
+        (_a = response.data) == null ? void 0 : _a.removeListener("data", dataHandler);
+        (_b = response.data) == null ? void 0 : _b.removeListener("error", responseErrorHandler);
+        writer == null ? void 0 : writer.removeListener("finish", finishHandler);
+        writer == null ? void 0 : writer.removeListener("error", writerErrorHandler);
       });
     } catch (error) {
       if (!isCancelled) {
-        if (import_axios.default.isAxiosError(error) && error.code === "ECONNABORTED") {
-          console.log("\u8BF7\u6C42\u8D85\u65F6\uFF1A", error);
-          errorCallback == null ? void 0 : errorCallback(error);
+        if (import_axios.default.isAxiosError(error)) {
+          if (error.code === "ECONNABORTED") {
+            console.log("\u8BF7\u6C42\u8D85\u65F6\uFF1A", error);
+            errorCallback == null ? void 0 : errorCallback(error);
+          } else if (error.code === "ERR_CANCELED") {
+            console.log("\u8BF7\u6C42\u5DF2\u53D6\u6D88");
+          } else {
+            console.log("\u7F51\u7EDC\u9519\u8BEF\uFF1A", error);
+            errorCallback == null ? void 0 : errorCallback(error);
+          }
         } else {
-          console.log("\u7F51\u7EDC\u9519\u8BEF\uFF1A", error);
+          console.log("\u5176\u4ED6\u9519\u8BEF\uFF1A", error);
           errorCallback == null ? void 0 : errorCallback(error);
         }
       }
@@ -2086,7 +2145,7 @@ var import_compare_versions = require("compare-versions");
 var PluginManager = class {
   constructor(config) {
     this.defaultTimeout = 1e4;
-    this.activeDownloads = /* @__PURE__ */ new Map();
+    this.downloadAbortControllers = /* @__PURE__ */ new Map();
     this.plugins = /* @__PURE__ */ new Map();
     this.pluginsConfig = /* @__PURE__ */ new Map();
     this.uninstallPlugins = /* @__PURE__ */ new Map();
@@ -2344,12 +2403,9 @@ var PluginManager = class {
       this.emitEvent("onComponentLoad", pluginId);
       return componentInfo;
     } catch (error) {
-      throw new PluginError(
-        pluginId,
-        "COMPONENT_LOAD_ERROR",
-        `Failed to load component: ${error.message}`,
-        error
-      );
+      const errorMsg = `Failed to load component: ${error.message}`;
+      this.emitEvent("onPluginError", pluginId, errorMsg);
+      throw new PluginError(pluginId, "COMPONENT_LOAD_ERROR", errorMsg, error);
     }
   }
   /**
@@ -2380,12 +2436,9 @@ var PluginManager = class {
         message: "Component unload event triggered"
       };
     } catch (error) {
-      throw new PluginError(
-        pluginId,
-        "COMPONENT_UNLOAD_ERROR",
-        `Failed to unload component: ${error.message}`,
-        error
-      );
+      const errorMsg = `Failed to unload component: ${error.message}`;
+      this.emitEvent("onPluginError", pluginId, errorMsg);
+      throw new PluginError(pluginId, "COMPONENT_UNLOAD_ERROR", errorMsg, error);
     }
   }
   /**
@@ -2413,8 +2466,11 @@ var PluginManager = class {
       if (!await fs2.pathExists(fileEntry)) {
         throw new PluginError(pluginId, "MAIN_NOT_FOUND", "Main not found");
       }
-      return require(fileEntry).default;
+      const plugin = require(fileEntry).default;
+      this.emitEvent("onPluginLoad", pluginId);
+      return plugin;
     } catch (error) {
+      this.emitEvent("onPluginError", pluginId, error.message);
       throw new PluginError(pluginId, "LOAD_ERROR", `Failed to load plugin: ${error.message}`, error);
     }
   }
@@ -2446,6 +2502,7 @@ var PluginManager = class {
    * @param options 安装选项
    */
   async installFromPemox(pemoxPath, options) {
+    var _a;
     try {
       if (!await fs2.pathExists(pemoxPath)) {
         throw new PluginError("system", "FILE_NOT_FOUND", `Pemox file not found: ${pemoxPath}`);
@@ -2496,6 +2553,8 @@ var PluginManager = class {
           manifest.componentPath = componentPath;
         }
         manifest.pluginDir = path2.resolve(pluginPath);
+        const isUpdate = this.pluginsConfig.has(pluginId);
+        const oldVersion = isUpdate ? (_a = this.pluginsConfig.get(pluginId)) == null ? void 0 : _a.version : void 0;
         this.pluginsConfig.set(pluginId, manifest);
         const pluginsConfigObject = Object.fromEntries(this.pluginsConfig);
         await fs2.writeJSON(
@@ -2503,6 +2562,11 @@ var PluginManager = class {
           pluginsConfigObject,
           { spaces: 2 }
         );
+        if (isUpdate) {
+          this.emitEvent("onPluginUpdate", pluginId, oldVersion, manifest.version);
+        } else {
+          this.emitEvent("onInstall", pluginId);
+        }
         return {
           success: true,
           pluginsConfig: this.pluginsConfig
@@ -2535,7 +2599,6 @@ var PluginManager = class {
   }
   async installFromOnline(pluginManifest, options) {
     return new Promise(async (resolve2) => {
-      let downloadController = null;
       try {
         const pluginId = pluginManifest.pluginId;
         const version = pluginManifest.version;
@@ -2565,9 +2628,16 @@ var PluginManager = class {
         }
         console.log("downloadUrl", downloadUrl);
         const savePath = path2.resolve(this.config.pluginDir, "_download");
+        const abortController = new AbortController();
+        this.downloadAbortControllers.set(pluginId, abortController);
+        this.emitEvent("onDownloadStart", pluginId, downloadUrl);
         const completionCallback = async (localPath) => {
+          if (abortController.signal.aborted) {
+            return;
+          }
           try {
             console.log(`Download completed. File saved at: ${localPath}`);
+            this.emitEvent("onDownloadComplete", pluginId, localPath);
             const hash = await calculateFileHash(localPath);
             let fileHash = pluginManifest.fileHash;
             if (process.platform === "darwin" && pluginManifest.macFileHash) {
@@ -2602,29 +2672,36 @@ var PluginManager = class {
                   { spaces: 2 }
                 );
               }
+              this.downloadAbortControllers.delete(pluginId);
               resolve2({ success: true, pluginsConfig: this.pluginsConfig });
             } else {
+              const errorMsg = `Downloaded file hash (${hash}) does not match`;
+              this.emitEvent("onDownloadError", pluginId, errorMsg);
+              this.downloadAbortControllers.delete(pluginId);
               resolve2({
                 success: false,
-                error: `Downloaded file hash (${hash}) does not match`
+                error: errorMsg
               });
             }
           } catch (error) {
+            const errorMsg = `Failed to process downloaded plugin: ${error.message}`;
+            this.emitEvent("onDownloadError", pluginId, errorMsg);
+            this.downloadAbortControllers.delete(pluginId);
             resolve2({
               success: false,
-              error: `Failed to process downloaded plugin: ${error.message}`
+              error: errorMsg
             });
           }
         };
         if (options == null ? void 0 : options.downloadFile) {
-          downloadController = options.downloadFile({
+          options.downloadFile({
             url: downloadUrl,
             savePath,
             startCallback: () => {
               console.log("Download started");
             },
             progressCallback: (progress) => {
-              if (options == null ? void 0 : options.progressCallback) {
+              if ((options == null ? void 0 : options.progressCallback) && !abortController.signal.aborted) {
                 options.progressCallback(progress);
               }
               console.log(`Download progress: ${progress}%`);
@@ -2633,22 +2710,28 @@ var PluginManager = class {
               await completionCallback(localPath);
             },
             errorCallback: (error) => {
-              resolve2({
-                success: false,
-                error: `Failed to download plugin: ${error.message}`
-              });
+              if (!abortController.signal.aborted) {
+                const errorMsg = `Failed to download plugin: ${error.message}`;
+                this.emitEvent("onDownloadError", pluginId, errorMsg);
+                this.downloadAbortControllers.delete(pluginId);
+                resolve2({
+                  success: false,
+                  error: errorMsg
+                });
+              }
             },
-            agent: options == null ? void 0 : options.agent
+            agent: options == null ? void 0 : options.agent,
+            abortController
           });
         } else {
-          downloadController = downloadFile({
+          downloadFile({
             url: downloadUrl,
             savePath,
             startCallback: () => {
               console.log("Download started");
             },
             progressCallback: (progress) => {
-              if (options == null ? void 0 : options.progressCallback) {
+              if ((options == null ? void 0 : options.progressCallback) && !abortController.signal.aborted) {
                 options.progressCallback(progress);
               }
               console.log(`Download progress: ${progress}%`);
@@ -2657,16 +2740,19 @@ var PluginManager = class {
               await completionCallback(localPath);
             },
             errorCallback: (error) => {
-              resolve2({
-                success: false,
-                error: `Failed to download plugin: ${error.message}`
-              });
+              if (!abortController.signal.aborted) {
+                const errorMsg = `Failed to download plugin: ${error.message}`;
+                this.emitEvent("onDownloadError", pluginId, errorMsg);
+                this.downloadAbortControllers.delete(pluginId);
+                resolve2({
+                  success: false,
+                  error: errorMsg
+                });
+              }
             },
-            agent: options == null ? void 0 : options.agent
+            agent: options == null ? void 0 : options.agent,
+            abortController
           });
-        }
-        if (downloadController) {
-          this.activeDownloads.set(pluginId, downloadController);
         }
       } catch (error) {
         resolve2({ success: false, error: error.message });
@@ -2714,12 +2800,9 @@ var PluginManager = class {
       this.emitEvent("onUninstall", pluginId);
       return { success: true, pluginsConfig: this.pluginsConfig };
     } catch (error) {
-      throw new PluginError(
-        pluginId,
-        "UNINSTALL_ERROR",
-        `Failed to uninstall plugin: ${error.message}`,
-        error
-      );
+      const errorMsg = `Failed to uninstall plugin: ${error.message}`;
+      this.emitEvent("onPluginError", pluginId, errorMsg);
+      throw new PluginError(pluginId, "UNINSTALL_ERROR", errorMsg, error);
     }
   }
   /**
@@ -2762,13 +2845,13 @@ var PluginManager = class {
     await fs2.writeJSON(agentPath, this.agentInfo, { spaces: 2 });
     return this.agentInfo;
   }
-  emitEvent(type, pluginName) {
+  emitEvent(type, pluginName, ...args) {
     const listeners = this.eventListeners.get(type);
     if (listeners) {
       listeners.forEach((listener) => {
         var _a;
         try {
-          listener(pluginName);
+          listener(pluginName, ...args);
         } catch (error) {
           (_a = this.config.logger) == null ? void 0 : _a.error(`Error in ${type} listener: ${error}`);
         }
@@ -2803,29 +2886,21 @@ var PluginManager = class {
    * @returns 是否成功取消
    */
   cancelDownload(pluginId) {
-    const download = this.activeDownloads.get(pluginId);
-    if (download) {
-      download.cancel();
-      this.activeDownloads.delete(pluginId);
-      return true;
+    const abortController = this.downloadAbortControllers.get(pluginId);
+    if (abortController) {
+      abortController.abort();
+      this.downloadAbortControllers.delete(pluginId);
     }
-    return false;
+    return !!abortController;
   }
   /**
    * 取消所有正在进行的下载
    */
   cancelAllDownloads() {
-    this.activeDownloads.forEach((download) => {
-      download.cancel();
+    this.downloadAbortControllers.forEach((abortController) => {
+      abortController.abort();
     });
-    this.activeDownloads.clear();
-  }
-  /**
-   * 获取正在下载的插件列表
-   * @returns 正在下载的插件ID数组
-   */
-  getActiveDownloads() {
-    return Array.from(this.activeDownloads.keys());
+    this.downloadAbortControllers.clear();
   }
 };
 function extractVersionFromName(name) {
