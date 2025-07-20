@@ -15,7 +15,8 @@ interface IPlugin {
     embedding(options: EmbeddingOptions): Promise<EmbeddingResults[] | null>;
     cancelRequest(operationType: string, id?: string): boolean;
     cancelAllRequests(): void;
-    cancelTTS(processId: string): boolean;
+    cancelProcess(processId: string): boolean;
+    cancelAllProcesses(): void;
     checkService(): Promise<boolean>;
     stopService(): Promise<boolean>;
     startService(): Promise<{
@@ -23,6 +24,7 @@ interface IPlugin {
         message?: string;
     }>;
     synthesize(options: TTSOptions): Promise<string>;
+    transcript(args: string[], options: WhisperOptions): Promise<any>;
 }
 interface ProgressCallback {
     current: number;
@@ -169,6 +171,7 @@ interface PluginManifest {
     description: string;
     pluginId: string;
     category: string;
+    categoryName: string;
     main: string;
     downloadUrl?: string;
     componentPath?: string;
@@ -213,6 +216,12 @@ interface PluginRequest {
     model?: string;
     config?: PluginConfig;
     [key: string]: any;
+}
+interface WhisperOptions {
+    uuid: string;
+    onSegment?: (segment: any) => void;
+    onError?: (error: any) => void;
+    onSuccess?: (transcription: any) => void;
 }
 
 interface PluginManagerConfig {
@@ -343,4 +352,4 @@ declare class PluginManager implements IPluginManager {
     removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
 }
 
-export { type AbortType, type AgentConfig, type AgentInfo, type Architecture, type ChatOptions, type EmbeddingOptions, type EmbeddingResults, type IPlugin, type IPluginManager, type ImportType, type InstallOptions, type Message, type MindMapOptions, type Platform, type PluginConfig, type PluginConfiguration, PluginError, type PluginEventListeners, type PluginManagerConfig, type PluginManifest, type PluginModel, type PluginProvider, type PluginRequest, type PluginResponse, type ProgressCallback, type SummarizeOptions, type TTSOptions, type TranslationInput, type TranslationOptions, PluginManager as default };
+export { type AbortType, type AgentConfig, type AgentInfo, type Architecture, type ChatOptions, type EmbeddingOptions, type EmbeddingResults, type IPlugin, type IPluginManager, type ImportType, type InstallOptions, type Message, type MindMapOptions, type Platform, type PluginConfig, type PluginConfiguration, PluginError, type PluginEventListeners, type PluginManagerConfig, type PluginManifest, type PluginModel, type PluginProvider, type PluginRequest, type PluginResponse, type ProgressCallback, type SummarizeOptions, type TTSOptions, type TranslationInput, type TranslationOptions, type WhisperOptions, PluginManager as default };

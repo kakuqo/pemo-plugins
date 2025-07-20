@@ -1984,12 +1984,14 @@ async function downloadFile({ url, savePath, agent, startCallback, progressCallb
     let totalSize = null;
     response.data.on("data", (chunk) => {
       bytesDownloaded += chunk.length;
+      console.log("bytesDownloaded", bytesDownloaded);
       if (progressCallback && totalSize) {
         const progress = bytesDownloaded / totalSize * 100;
         progressCallback(progress);
       }
     });
     response.data.on("response", (res) => {
+      console.log("download response", res);
       totalSize = parseInt(res.headers["content-length"], 10);
     });
     writer.on("finish", () => {
@@ -2044,7 +2046,7 @@ var PluginManager = class {
       autoUpdate: false,
       maxConcurrent: 3,
       timeout: this.defaultTimeout,
-      pluginListUrl: "https://plugin-list.pemo.ai/plugins-list",
+      pluginListUrl: "https://plugin-list.pemo.ai/plugins-info",
       ...config
     };
     this.init();
