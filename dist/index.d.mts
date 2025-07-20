@@ -255,7 +255,9 @@ interface InstallOptions {
         completionCallback?: (localPath: string) => void;
         errorCallback?: (error: any) => void;
         agent?: HttpsProxyAgent<string> | SocksProxyAgent | undefined;
-    }) => Promise<void>;
+    }) => {
+        cancel: () => void;
+    };
     zipFileFunction?: (zipFilePath: string, outputFolderPath: string, callback?: any) => Promise<void>;
 }
 declare class PluginError extends Error {
@@ -274,7 +276,12 @@ interface IPluginManager {
     }): Promise<PluginManifest[]>;
     installFromPemox(pemoxPath: string, options?: InstallOptions): Promise<any>;
     installMultipleFromPemox(pemoxPaths: string[], options?: InstallOptions): Promise<void>;
-    installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<void>;
+    installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<{
+        success: boolean;
+        pluginsConfig?: Map<string, PluginManifest>;
+        error?: string;
+        cancel?: () => void;
+    }>;
     uninstallPlugin(pluginId: string): Promise<{
         success: boolean;
         pluginsConfig: Map<string, PluginManifest>;
@@ -288,6 +295,9 @@ interface IPluginManager {
     reloadPluginComponent(pluginId: string, containerId: string, componentName?: string): Promise<any>;
     addEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
     removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
+    cancelDownload(pluginId: string): boolean;
+    cancelAllDownloads(): void;
+    getActiveDownloads(): string[];
 }
 interface AgentConfig {
     id: string;
@@ -317,6 +327,7 @@ declare class PluginManager implements IPluginManager {
     private config;
     private eventListeners;
     private defaultTimeout;
+    private activeDownloads;
     constructor(config: Partial<PluginManagerConfig>);
     private init;
     getPlugins(): Map<string, IPlugin>;
@@ -338,7 +349,12 @@ declare class PluginManager implements IPluginManager {
     }): Promise<PluginManifest[]>;
     installFromPemox(pemoxPath: string, options?: InstallOptions): Promise<any>;
     installMultipleFromPemox(pemoxPaths: string[], options?: InstallOptions): Promise<void>;
-    installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<any>;
+    installFromOnline(pluginManifest: PluginManifest, options?: InstallOptions): Promise<{
+        success: boolean;
+        pluginsConfig?: Map<string, PluginManifest>;
+        error?: string;
+        cancel?: () => void;
+    }>;
     private removeOldPlugin;
     uninstallPlugin(pluginId: string): Promise<{
         success: boolean;
@@ -350,6 +366,9 @@ declare class PluginManager implements IPluginManager {
     private emitEvent;
     addEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
     removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
+    cancelDownload(pluginId: string): boolean;
+    cancelAllDownloads(): void;
+    getActiveDownloads(): string[];
 }
 
 export { type AbortType, type AgentConfig, type AgentInfo, type Architecture, type ChatOptions, type EmbeddingOptions, type EmbeddingResults, type IPlugin, type IPluginManager, type ImportType, type InstallOptions, type Message, type MindMapOptions, type Platform, type PluginConfig, type PluginConfiguration, PluginError, type PluginEventListeners, type PluginManagerConfig, type PluginManifest, type PluginModel, type PluginProvider, type PluginRequest, type PluginResponse, type ProgressCallback, type SummarizeOptions, type TTSOptions, type TranslationInput, type TranslationOptions, type WhisperOptions, PluginManager as default };
