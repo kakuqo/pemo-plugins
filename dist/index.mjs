@@ -1980,6 +1980,12 @@ function downloadFile({
   let cleanupFunctions = [];
   const internalAbortController = abortController || new AbortController();
   const shouldCleanupAbortController = !abortController;
+  const reset = () => {
+    isCancelled = false;
+    response = null;
+    writer = null;
+    cleanupFunctions = [];
+  };
   const cleanup = () => {
     isCancelled = true;
     cleanupFunctions.forEach((cleanupFn) => {
@@ -1990,6 +1996,7 @@ function downloadFile({
       }
     });
     cleanupFunctions = [];
+    reset();
     if (shouldCleanupAbortController) {
       internalAbortController.abort();
     }
@@ -2029,6 +2036,7 @@ function downloadFile({
   };
   (async () => {
     try {
+      reset();
       if (isCancelled) {
         return;
       }
@@ -2039,8 +2047,16 @@ function downloadFile({
         httpsAgent: agent,
         timeout: 5e3,
         // 设置超时时间为5秒
-        signal: internalAbortController.signal
+        signal: internalAbortController.signal,
         // 添加 signal 用于取消
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
+          "Expires": "0"
+        },
+        // 禁用 axios 的缓存
+        maxRedirects: 0,
+        validateStatus: (status) => status < 400
       });
       if (isCancelled) {
         response.data.destroy();
@@ -2628,6 +2644,12 @@ var PluginManager = class {
         console.log("downloadUrl", downloadUrl);
         const downloadFileName = `_download_${pluginId}_${Date.now()}`;
         const savePath = path2.resolve(this.config.pluginDir, downloadFileName);
+        const existingAbortController = this.downloadAbortControllers.get(pluginId);
+        if (existingAbortController) {
+          existingAbortController.abort();
+          this.downloadAbortControllers.delete(pluginId);
+          await this.cleanupDownloadFiles(pluginId);
+        }
         const abortController = new AbortController();
         this.downloadAbortControllers.set(pluginId, abortController);
         this.emitEvent("onDownloadStart", pluginId, downloadUrl);
