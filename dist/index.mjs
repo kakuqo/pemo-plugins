@@ -2670,6 +2670,7 @@ var PluginManager = class {
               const errorMsg = `Downloaded file hash (${hash}) does not match`;
               this.emitEvent("onDownloadError", pluginId, errorMsg);
               this.downloadAbortControllers.delete(pluginId);
+              await this.cleanupDownloadFiles();
               resolve2({
                 success: false,
                 error: errorMsg
@@ -2679,6 +2680,7 @@ var PluginManager = class {
             const errorMsg = `Failed to process downloaded plugin: ${error.message}`;
             this.emitEvent("onDownloadError", pluginId, errorMsg);
             this.downloadAbortControllers.delete(pluginId);
+            await this.cleanupDownloadFiles();
             resolve2({
               success: false,
               error: errorMsg
@@ -2701,11 +2703,12 @@ var PluginManager = class {
             completionCallback: async (localPath) => {
               await completionCallback(localPath);
             },
-            errorCallback: (error) => {
+            errorCallback: async (error) => {
               if (!abortController.signal.aborted) {
                 const errorMsg = `Failed to download plugin: ${error.message}`;
                 this.emitEvent("onDownloadError", pluginId, errorMsg);
                 this.downloadAbortControllers.delete(pluginId);
+                await this.cleanupDownloadFiles();
                 resolve2({
                   success: false,
                   error: errorMsg
@@ -2730,11 +2733,12 @@ var PluginManager = class {
             completionCallback: async (localPath) => {
               await completionCallback(localPath);
             },
-            errorCallback: (error) => {
+            errorCallback: async (error) => {
               if (!abortController.signal.aborted) {
                 const errorMsg = `Failed to download plugin: ${error.message}`;
                 this.emitEvent("onDownloadError", pluginId, errorMsg);
                 this.downloadAbortControllers.delete(pluginId);
+                await this.cleanupDownloadFiles();
                 resolve2({
                   success: false,
                   error: errorMsg
@@ -2881,8 +2885,28 @@ var PluginManager = class {
     if (abortController) {
       abortController.abort();
       this.downloadAbortControllers.delete(pluginId);
+      this.cleanupDownloadFiles();
     }
     return !!abortController;
+  }
+  /**
+   * 清理下载的缓存文件
+   */
+  async cleanupDownloadFiles() {
+    try {
+      const downloadPath = path2.resolve(this.config.pluginDir, "_download");
+      const downloadingPath = path2.resolve(this.config.pluginDir, "_download.downloading");
+      if (await fs2.pathExists(downloadPath)) {
+        await fs2.remove(downloadPath);
+        console.log("\u5DF2\u6E05\u7406\u4E0B\u8F7D\u7F13\u5B58\u6587\u4EF6:", downloadPath);
+      }
+      if (await fs2.pathExists(downloadingPath)) {
+        await fs2.remove(downloadingPath);
+        console.log("\u5DF2\u6E05\u7406\u4E0B\u8F7D\u4E34\u65F6\u6587\u4EF6:", downloadingPath);
+      }
+    } catch (error) {
+      console.error("\u6E05\u7406\u4E0B\u8F7D\u6587\u4EF6\u5931\u8D25:", error);
+    }
   }
   /**
    * 取消所有正在进行的下载
@@ -2892,6 +2916,7 @@ var PluginManager = class {
       abortController.abort();
     });
     this.downloadAbortControllers.clear();
+    this.cleanupDownloadFiles();
   }
 };
 function extractVersionFromName(name) {

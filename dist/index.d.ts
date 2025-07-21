@@ -379,6 +379,7 @@ declare class PluginManager implements IPluginManager {
     addEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
     removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
     cancelDownload(pluginId: string): boolean;
+    private cleanupDownloadFiles;
     cancelAllDownloads(): void;
 }
 
