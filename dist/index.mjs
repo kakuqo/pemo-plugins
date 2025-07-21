@@ -2056,9 +2056,9 @@ function downloadFile({
         bytesDownloaded += chunk.length;
         if (progressCallback && totalSize) {
           const progress = bytesDownloaded / totalSize * 100;
-          progressCallback(progress);
+          progressCallback({ progress, pluginId: "" });
         } else if (progressCallback && !totalSize) {
-          progressCallback(-1);
+          progressCallback({ progress: -1, pluginId: "" });
         }
       };
       response.data.on("data", dataHandler);
@@ -2692,9 +2692,9 @@ var PluginManager = class {
             startCallback: () => {
               console.log("Download started");
             },
-            progressCallback: ({ progress, pluginId: pluginId2 }) => {
+            progressCallback: ({ progress }) => {
               if ((options == null ? void 0 : options.progressCallback) && !abortController.signal.aborted) {
-                options.progressCallback({ progress, pluginId: pluginId2 });
+                options.progressCallback({ progress, pluginId });
               }
               console.log(`Download progress: ${progress}%`);
             },
@@ -2722,7 +2722,7 @@ var PluginManager = class {
             startCallback: () => {
               console.log("Download started");
             },
-            progressCallback: (progress) => {
+            progressCallback: ({ progress }) => {
               if ((options == null ? void 0 : options.progressCallback) && !abortController.signal.aborted) {
                 options.progressCallback({ progress, pluginId });
               }

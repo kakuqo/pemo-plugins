@@ -310,8 +310,6 @@ interface IPluginManager {
     reloadPluginComponent(pluginId: string, containerId: string, componentName?: string): Promise<any>;
     addEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
     removeEventListener(type: keyof PluginEventListeners, listener: (pluginId: string) => void): void;
-    cancelDownload(pluginId: string): boolean;
-    cancelAllDownloads(): void;
 }
 interface AgentConfig {
     id: string;
