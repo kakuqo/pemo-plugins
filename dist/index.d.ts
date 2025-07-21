@@ -252,12 +252,18 @@ interface PluginEventListeners {
 interface InstallOptions {
     force?: boolean;
     agent?: HttpsProxyAgent<string> | SocksProxyAgent;
-    progressCallback?: (progress: number) => void;
+    progressCallback?: ({ progress, pluginId }: {
+        progress: number;
+        pluginId: string;
+    }) => void;
     downloadFile?: (options: {
         url: string;
         savePath: string;
         startCallback?: () => void;
-        progressCallback?: (progress: number) => void;
+        progressCallback?: ({ progress, pluginId }: {
+            progress: number;
+            pluginId: string;
+        }) => void;
         completionCallback?: (localPath: string) => void;
         errorCallback?: (error: any) => void;
         agent?: HttpsProxyAgent<string> | SocksProxyAgent | undefined;

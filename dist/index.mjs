@@ -2692,9 +2692,9 @@ var PluginManager = class {
             startCallback: () => {
               console.log("Download started");
             },
-            progressCallback: (progress) => {
+            progressCallback: ({ progress, pluginId: pluginId2 }) => {
               if ((options == null ? void 0 : options.progressCallback) && !abortController.signal.aborted) {
-                options.progressCallback(progress);
+                options.progressCallback({ progress, pluginId: pluginId2 });
               }
               console.log(`Download progress: ${progress}%`);
             },
@@ -2724,9 +2724,8 @@ var PluginManager = class {
             },
             progressCallback: (progress) => {
               if ((options == null ? void 0 : options.progressCallback) && !abortController.signal.aborted) {
-                options.progressCallback(progress);
+                options.progressCallback({ progress, pluginId });
               }
-              console.log(`Download progress: ${progress}%`);
             },
             completionCallback: async (localPath) => {
               await completionCallback(localPath);
