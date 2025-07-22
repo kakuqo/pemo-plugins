@@ -2060,10 +2060,10 @@ function downloadFile({
         headers: {
           "Cache-Control": "no-cache, no-store, must-revalidate",
           "Pragma": "no-cache",
-          "Expires": "0"
+          "Expires": "0",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         },
-        // 禁用 axios 的缓存
-        maxRedirects: 0,
+        // 去掉 maxRedirects: 0，让 axios 默认自动跟随重定向
         validateStatus: (status) => status < 400
       });
       if (isCancelled) {
